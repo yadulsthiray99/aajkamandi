@@ -1,5 +1,5 @@
 # Every morning (India time): fetch yesterday's complete mandi prices + this month's egg rates,
-# rebuild with the quality gate, deploy to Cloudflare Pages, and commit the new data
+# rebuild with the quality gate, deploy to Cloudflare, and commit the new data
 # (the stored daily history is what powers the trend charts).
 name: daily-update
 
@@ -13,14 +13,14 @@ permissions:
 
 jobs:
   update:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04   # pinned: ubuntu-latest moves to Ubuntu 26 from 2026-10-19
     timeout-minutes: 60
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
+      - uses: actions/checkout@v5
+      - uses: actions/setup-python@v6
         with:
           python-version: "3.12"
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v5
         with:
           node-version: "22"
           cache: npm
@@ -39,11 +39,17 @@ jobs:
           npm run build:gated
 
       - name: Deploy to Cloudflare (static assets, wrangler.jsonc)
-        uses: cloudflare/wrangler-action@v3
-        with:
-          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
-          accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
-          command: deploy
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+        run: |
+          set -o pipefail
+          if ! npx wrangler deploy 2>&1 | tee deploy.log; then
+            # surface the real Cloudflare message in the run summary
+            msg=$(grep -iE "error|code: *[0-9]+|authentication|permission|not found|forbidden" deploy.log | grep -v "^\s*at " | head -6 | tr '\n' ' ')
+            echo "::error title=Cloudflare deploy failed::${msg:-see the step log}"
+            exit 1
+          fi
 
       - name: Commit new data
         run: |
