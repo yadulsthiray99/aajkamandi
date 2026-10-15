@@ -1,0 +1,18 @@
+---
+import Base from '../../layouts/Base.astro';
+import held from '../../data/holdback.json';
+import data from '../../data/mandi.json';
+import { dateEn } from '../../lib/fmt';
+const states = [...new Set(data.towns.map((t: any) => t.state))].sort() as string[];
+---
+<Base title={`Mandi Bhav Today ${dateEn(data.latest)}: All Mandis | आज का मंडी भाव`}
+      description={`Today's mandi bhav for ${data.towns.length} mandis across ${states.length} states, from official Agmarknet data. सभी मंडियों के ताज़ा भाव।`}>
+  <p class="crumbs"><a href="/">Home</a> › Mandi</p>
+  <h1>Mandi Bhav Today <span class="hi">| सभी मंडियों के भाव</span></h1>
+  {states.map((s) => (
+    <>
+      <h2 id={s.toLowerCase().replace(/[^a-z0-9]+/g, '-')}>{s}</h2>
+      <ul class="grid">{data.towns.filter((t: any) => t.state === s && !held.includes(`mandi/${t.state_slug}/${t.slug}`)).map((t: any) => <li><a href={`/mandi/${t.state_slug}/${t.slug}/`}>{t.town}<br /><span class="hi muted">{t.town_hi}</span></a></li>)}</ul>
+    </>
+  ))}
+</Base>

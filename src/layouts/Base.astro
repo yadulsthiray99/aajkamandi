@@ -1,0 +1,67 @@
+---
+interface Props { title: string; description: string; schema?: object[]; image?: string }
+const { title, description, schema = [], image } = Astro.props;
+const imageUrl = image ? new URL(image, Astro.site).href : null;
+const canonical = new URL(Astro.url.pathname, Astro.site).href;
+---
+<!doctype html>
+<html lang="hi-IN">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>{title}</title>
+    <meta name="description" content={description} />
+    <link rel="canonical" href={canonical} />
+    <meta property="og:title" content={title} />
+    <meta property="og:description" content={description} />
+    <meta property="og:url" content={canonical} />
+    <meta property="og:locale" content="hi_IN" />
+    {imageUrl && <meta property="og:image" content={imageUrl} />}
+    {imageUrl && <meta property="og:image:width" content="1200" />}
+    {imageUrl && <meta property="og:image:height" content="630" />}
+    <meta name="twitter:card" content={imageUrl ? 'summary_large_image' : 'summary'} />
+    {imageUrl && <meta name="twitter:image" content={imageUrl} />}
+    <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
+    {schema.map((s) => <script type="application/ld+json" set:html={JSON.stringify(s)} />)}
+    <style is:global>
+      :root { --ink:#17202a; --muted:#5b6672; --line:#e0e5ea; --soft:#f3f7f4; --accent:#1a7f37; --up:#1a7f37; --down:#b42318; }
+      * { box-sizing:border-box; }
+      body { margin:0; font:16px/1.6 system-ui, -apple-system, "Segoe UI", "Noto Sans Devanagari", Roboto, sans-serif; color:var(--ink); background:#fff; }
+      a { color:#0b6bcb; }
+      .wrap { max-width:980px; margin:0 auto; padding:0 16px; }
+      header.site { border-bottom:1px solid var(--line); }
+      header.site .wrap { display:flex; justify-content:space-between; align-items:center; height:56px; gap:12px; }
+      header.site a.brand { font-weight:800; color:var(--accent); text-decoration:none; font-size:18px; }
+      header.site nav a { margin-left:14px; font-size:15px; }
+      footer.site { border-top:1px solid var(--line); margin-top:48px; font-size:14px; color:var(--muted); }
+      h1 { font-size:clamp(24px,4vw,34px); line-height:1.25; margin:24px 0 8px; }
+      h2 { font-size:21px; margin:32px 0 10px; }
+      .answer { font-size:17px; background:var(--soft); border-left:4px solid var(--accent); padding:12px 16px; border-radius:6px; }
+      table { width:100%; border-collapse:collapse; font-size:15px; }
+      th, td { text-align:left; padding:8px 10px; border-bottom:1px solid var(--line); vertical-align:top; }
+      th { background:#f5f7f9; font-weight:600; white-space:nowrap; }
+      td.num, th.num { text-align:right; white-space:nowrap; }
+      .up { color:var(--up); } .down { color:var(--down); }
+      .muted { color:var(--muted); font-size:14px; }
+      .crumbs { font-size:14px; color:var(--muted); margin-top:14px; }
+      .crumbs a { color:var(--muted); }
+      .grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(150px,1fr)); gap:8px; list-style:none; padding:0; }
+      .grid a { display:block; padding:8px 10px; border:1px solid var(--line); border-radius:6px; text-decoration:none; }
+      .trends { display:grid; grid-template-columns:repeat(auto-fill,minmax(280px,1fr)); gap:16px; }
+      figure.trend { margin:0; }
+      .scroll { overflow-x:auto; }
+      .hi { font-family:"Noto Sans Devanagari", system-ui, sans-serif; }
+    </style>
+  </head>
+  <body>
+    <header class="site"><div class="wrap">
+      <a class="brand" href="/">आज का मंडी <span style="color:var(--ink)">AajKaMandi</span></a>
+      <nav><a href="/mandi/">Mandi</a><a href="/bhav/">Crops</a><a href="/egg-rate/">Egg rate</a></nav>
+    </div></header>
+    <main class="wrap"><slot /></main>
+    <footer class="site"><div class="wrap">
+      <p>Mandi prices: Agmarknet, Ministry of Agriculture &amp; Farmers Welfare, via data.gov.in (Open Government Data licence). Prices are in ₹ per quintal (100 kg) as reported by the market; check with your local mandi before buying or selling. मंडी भाव केवल जानकारी के लिए हैं।</p>
+      <p><a href="/about/">About</a> · <a href="/source/">Data source &amp; method</a> · <a href="/privacy/">Privacy</a> · <a href="/contact/">Contact</a></p>
+    </div></footer>
+  </body>
+</html>

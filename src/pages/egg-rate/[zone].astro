@@ -1,0 +1,56 @@
+---
+import held from '../../data/holdback.json';
+import Base from '../../layouts/Base.astro';
+import Trend from '../../components/Trend.astro';
+import data from '../../data/eggs.json';
+import { dateEn, dateHi } from '../../lib/fmt';
+
+export function getStaticPaths() {
+  return data.zones.filter((z: any) => !held.includes(`egg-rate/${z.slug}`)).map((z: any) => ({ params: { zone: z.slug }, props: { z } }));
+}
+const { z } = Astro.props as { z: any };
+const perEgg = (z.per100 / 100).toFixed(2);
+const tray = ((z.per100 / 100) * 30).toFixed(0);
+const clean = (s: string) => s.replace(/\s*\(.*?\)/, '');
+const city = [z.zone, ...z.also].map(clean).join(' & ');
+const hist = z.history.slice().reverse();
+const MON = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+const monthName = (m: string) => `${MON[+m.slice(5, 7) - 1]} ${m.slice(0, 4)}`;
+const yoy = z.year_ago ? ((z.per100 - z.year_ago.per100) / z.year_ago.per100) * 100 : null;
+const nat = data.zones.filter((x: any) => x.date === z.date);
+const avg = nat.reduce((s: number, x: any) => s + x.per100, 0) / Math.max(1, nat.length);
+const rank = nat.slice().sort((a: any, b: any) => a.per100 - b.per100).findIndex((x: any) => x.slug === z.slug) + 1;
+const title = `${city} Egg Rate Today ${dateEn(z.date)}: ₹${perEgg} per egg | ${city} अंडे का भाव`;
+const description = `${city} egg rate ${dateEn(z.date)}: ₹${z.per100} per 100 eggs (₹${perEgg} per egg, ₹${tray} per tray of 30). NECC suggested price with daily history. अंडे का आज का भाव ${dateHi(z.date)}.`;
+---
+<Base title={title} description={description}>
+  <p class="crumbs"><a href="/">Home</a> › <a href="/egg-rate/">Egg rate</a> › {city}</p>
+  <h1>{city} Egg Rate Today <span class="hi">| अंडे का भाव</span></h1>
+  <p class="answer">NECC egg price for <strong>{z.zone}</strong> on {dateEn(z.date)}: <strong>₹{z.per100} per 100 eggs</strong>, which is <strong>₹{perEgg} per egg</strong> or about ₹{tray} per tray of 30.
+    {z.change != null && z.change !== 0 && <> That is {z.change > 0 ? 'up' : 'down'} ₹{Math.abs(z.change)} per 100 from the previous rate.</>}
+    {z.also.length > 0 && <><br />NECC quotes the same rate for {[z.zone, ...z.also].join(' and ')}.</>}
+    <br /><span class="muted">{city} is #{rank} cheapest of {nat.length} NECC zones today (zone average ₹{avg.toFixed(0)} per 100).</span></p>
+
+  <h2>{city} egg price: last 12 months <span class="hi">— 12 महीनों का रुझान</span></h2>
+  <Trend points={z.chart} label={`${city} egg rate`} unit="100 eggs" />
+  <ul>
+    <li>12-month high: <strong>₹{z.high.per100}</strong> per 100 on {dateEn(z.high.date)}</li>
+    <li>12-month low: <strong>₹{z.low.per100}</strong> per 100 on {dateEn(z.low.date)}</li>
+    {z.year_ago && <li>A year ago ({dateEn(z.year_ago.date)}): ₹{z.year_ago.per100} per 100, so today's rate is <strong>{yoy! >= 0 ? 'up' : 'down'} {Math.abs(yoy!).toFixed(1)}%</strong> year on year</li>}
+  </ul>
+
+  <h2>Monthly average egg rate in {city}</h2>
+  <div class="scroll"><table>
+    <tr><th>Month</th><th class="num">Avg ₹ per 100</th><th class="num">Avg ₹ per egg</th></tr>
+    {z.monthly.slice().reverse().map((m: any) => <tr><td>{monthName(m.month)}</td><td class="num">{m.avg}</td><td class="num">{(m.avg / 100).toFixed(2)}</td></tr>)}
+  </table></div>
+
+  <h2>{city} daily egg rates <span class="hi">— रोज़ के भाव</span></h2>
+  <div class="scroll"><table>
+    <tr><th>Date</th><th class="num">₹ per 100 eggs</th><th class="num">₹ per egg</th><th class="num">₹ per tray (30)</th></tr>
+    {hist.map((h: any) => <tr><td>{dateEn(h.date)}</td><td class="num">{h.per100}</td><td class="num">{(h.per100 / 100).toFixed(2)}</td><td class="num">{((h.per100 / 100) * 30).toFixed(0)}</td></tr>)}
+  </table></div>
+
+  <p class="muted">Prices are NECC (National Egg Coordination Committee) suggested wholesale prices. NECC's note: these are suggested prices only; the Committee does not engage in trade, and actual prices may vary. Retail prices are usually higher.</p>
+  <p><a href="/egg-rate/">Egg rate in all cities</a></p>
+</Base>

@@ -1,0 +1,45 @@
+---
+import held from '../../data/holdback.json';
+import Base from '../../layouts/Base.astro';
+import Trend from '../../components/Trend.astro';
+import data from '../../data/mandi.json';
+import { inr, perKg, dateEn, dateHi } from '../../lib/fmt';
+
+export function getStaticPaths() {
+  return data.crops.filter((c: any) => !held.includes(`bhav/${c.slug}`)).map((c: any) => ({ params: { crop: c.slug }, props: { c } }));
+}
+const { c } = Astro.props as { c: any };
+const hi = c.hindi ?? c.label;
+const title = `${c.label} Mandi Bhav Today ${dateEn(c.date)} | ${hi} का भाव आज`;
+const description = `${hi} का आज का मंडी भाव ${dateHi(c.date)}: औसत (मॉडल) ₹${inr(c.modal_median)} प्रति क्विंटल। ${c.markets} mandis in ${c.states} states, lowest ₹${inr(c.cheapest.modal_price)} at ${c.cheapest.market}, highest ₹${inr(c.dearest.modal_price)} at ${c.dearest.market}.`;
+const schema = [{ '@context': 'https://schema.org', '@type': 'BreadcrumbList', itemListElement: [
+  { '@type': 'ListItem', position: 1, name: 'Home', item: 'https://aajkamandi.com/' },
+  { '@type': 'ListItem', position: 2, name: 'Crops', item: 'https://aajkamandi.com/bhav/' },
+  { '@type': 'ListItem', position: 3, name: `${c.label} mandi bhav` } ] }];
+---
+<Base title={title} description={description} schema={schema}>
+  <p class="crumbs"><a href="/">Home</a> › <a href="/bhav/">Crops</a> › {c.label}</p>
+  <h1>{c.label} Mandi Bhav Today <span class="hi">| {hi} का भाव</span></h1>
+  <p class="answer"><span class="hi">{hi} का भाव {dateHi(c.date)}:</span> India median <strong>₹{inr(c.modal_median)}/quintal</strong> (₹{perKg(c.modal_median)}/kg) across <strong>{c.markets} mandis</strong> in {c.states} states. Lowest modal price ₹{inr(c.cheapest.modal_price)} at {c.cheapest.market} ({c.cheapest.state}); highest ₹{inr(c.dearest.modal_price)} at {c.dearest.market} ({c.dearest.state}).</p>
+
+  <Trend points={c.history} label={`${c.label} India median`} />
+
+  <h2>{c.label} price by state <span class="hi">— राज्यवार भाव</span></h2>
+  <div class="scroll"><table>
+    <tr><th>State</th><th class="num">Mandis</th><th class="num">Min ₹</th><th class="num">Max ₹</th><th class="num">Median modal ₹/qtl</th></tr>
+    {c.by_state.map((s: any) => <tr><td>{s.state}</td><td class="num">{s.markets}</td><td class="num">{inr(s.min)}</td><td class="num">{inr(s.max)}</td><td class="num"><strong>{inr(s.modal_median)}</strong></td></tr>)}
+  </table></div>
+
+  {c.towns.length > 0 && (
+    <>
+      <h2>Mandis with today's {c.label} rates</h2>
+      <ul class="grid">{c.towns.filter((x: any) => !held.includes(`mandi/${x.state_slug}/${x.slug}`)).map((x: any) => <li><a href={`/mandi/${x.state_slug}/${x.slug}/`}>{x.town}</a></li>)}</ul>
+    </>
+  )}
+
+  <h2>All {c.label} mandi rates ({dateEn(c.date)})</h2>
+  <div class="scroll"><table>
+    <tr><th>Mandi</th><th>District, State</th><th>Variety</th><th class="num">Min ₹</th><th class="num">Max ₹</th><th class="num">Modal ₹</th></tr>
+    {c.rows.map((r: any) => <tr><td>{r.market}</td><td>{r.district}, {r.state}</td><td>{r.variety}</td><td class="num">{inr(r.min_price)}</td><td class="num">{inr(r.max_price)}</td><td class="num"><strong>{inr(r.modal_price)}</strong></td></tr>)}
+  </table></div>
+</Base>

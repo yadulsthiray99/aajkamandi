@@ -1,0 +1,23 @@
+---
+// Small price-trend chart drawn from stored daily prices (Rs/quintal). Real data only:
+// it renders nothing until at least 2 days are stored.
+interface Props { points: { date: string; modal: number }[]; label: string; unit?: string }
+const { points, label, unit = 'quintal' } = Astro.props;
+import { dateEn } from '../lib/fmt';
+const W = 300, H = 70, P = 6;
+const vals = points.map((p) => p.modal);
+const lo = Math.min(...vals), hi = Math.max(...vals);
+const span = hi - lo || 1;
+const xy = points.map((p, i) => [P + (i * (W - 2 * P)) / Math.max(1, points.length - 1), H - P - ((p.modal - lo) / span) * (H - 2 * P)]);
+const d = xy.map(([x, y], i) => `${i ? 'L' : 'M'}${x.toFixed(1)},${y.toFixed(1)}`).join(' ');
+const up = vals[vals.length - 1] >= vals[0];
+---
+{points.length >= 2 && (
+  <figure class="trend">
+    <svg viewBox={`0 0 ${W} ${H}`} role="img" aria-label={`${label} price trend`} style="width:100%;max-width:300px;height:auto">
+      <path d={d} fill="none" stroke={up ? '#1a7f37' : '#b42318'} stroke-width="2" />
+      {xy.map(([x, y]) => <circle cx={x} cy={y} r="2" fill={up ? '#1a7f37' : '#b42318'} />)}
+    </svg>
+    <figcaption class="muted">{label}: ₹{Math.round(vals[0]).toLocaleString('en-IN')} → ₹{Math.round(vals[vals.length - 1]).toLocaleString('en-IN')} / {unit} ({dateEn(points[0].date)} to {dateEn(points[points.length - 1].date)}, {points.length} reports)</figcaption>
+  </figure>
+)}

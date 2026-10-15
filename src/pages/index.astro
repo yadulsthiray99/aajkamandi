@@ -1,0 +1,21 @@
+---
+import Base from '../layouts/Base.astro';
+import held from '../data/holdback.json';
+import mandi from '../data/mandi.json';
+import eggs from '../data/eggs.json';
+import { inr, dateEn, dateHi } from '../lib/fmt';
+const top = mandi.towns.filter((t: any) => !held.includes(`mandi/${t.state_slug}/${t.slug}`)).slice(0, 20);
+const schema = [{ '@context': 'https://schema.org', '@type': 'WebSite', name: 'AajKaMandi', url: 'https://aajkamandi.com/', inLanguage: ['hi', 'en'] }];
+---
+<Base title={`Aaj Ka Mandi Bhav ${dateEn(mandi.latest)} | आज का मंडी भाव - AajKaMandi`}
+      description={`आज का मंडी भाव ${dateHi(mandi.latest)}: बैतूल, नीमच, इंदौर, मंदसौर, कोटा समेत ${mandi.towns.length} मंडियों के ताज़ा भाव। Official Agmarknet data, updated daily. Egg rate today too.`} schema={schema}>
+  <h1>आज का मंडी भाव <span style="font-weight:400">| Mandi Bhav Today</span></h1>
+  <p class="answer">Latest official mandi prices for {dateEn(mandi.latest)} ({mandi.total_reports.toLocaleString('en-IN')} price reports from Agmarknet), updated every morning. <span class="hi">हर सुबह अपडेट।</span></p>
+  <h2>Popular mandis <span class="hi">— प्रमुख मंडियां</span></h2>
+  <ul class="grid">{top.map((t: any) => <li><a href={`/mandi/${t.state_slug}/${t.slug}/`}>{t.town}<br /><span class="hi muted">{t.town_hi}</span></a></li>)}</ul>
+  <p><a href="/mandi/">All mandis</a></p>
+  <h2>Crop prices <span class="hi">— फसलों के भाव</span></h2>
+  <ul class="grid">{mandi.crops.filter((c: any) => !held.includes(`bhav/${c.slug}`)).map((c: any) => <li><a href={`/bhav/${c.slug}/`}>{c.label}<br /><span class="muted">₹{inr(c.modal_median)}/qtl</span></a></li>)}</ul>
+  <h2>Egg rate today <span class="hi">— अंडे का भाव</span></h2>
+  <p><a href="/egg-rate/">NECC egg rates for {eggs.zones.length} cities</a></p>
+</Base>

@@ -1,0 +1,25 @@
+{
+  "name": "aajkamandi",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "fetch": "python scripts/fetch_mandi.py && python scripts/fetch_eggs.py",
+    "data": "python scripts/build_site_data.py",
+    "dev": "astro dev",
+    "build": "astro build",
+    "preview": "astro preview",
+    "check:quality": "python scripts/quality_check.py mandi bhav egg-rate",
+    "build:gated": "python scripts/build_site_data.py && node scripts/make_cards.mjs && astro build && python scripts/quality_check.py --holdback src/data/holdback.json mandi bhav egg-rate || (node scripts/make_cards.mjs && astro build && python scripts/quality_check.py mandi bhav egg-rate)",
+    "deploy": "wrangler deploy",
+    "cards": "node scripts/make_cards.mjs"
+  },
+  "dependencies": {
+    "@astrojs/sitemap": "^3.3.0",
+    "astro": "^5.7.0"
+  },
+  "devDependencies": {
+    "@resvg/resvg-js": "^2.6.2",
+    "harfbuzzjs": "^1.6.3",
+    "wrangler": "^4.151.0"
+  }
+}

@@ -1,0 +1,26 @@
+---
+import Base from '../../layouts/Base.astro';
+import held from '../../data/holdback.json';
+import data from '../../data/eggs.json';
+import { dateEn, dateHi } from '../../lib/fmt';
+const zones = data.zones.slice().sort((a: any, b: any) => a.per100 - b.per100);
+const today = zones.filter((z: any) => z.date === data.latest);
+const avg = today.reduce((s: number, z: any) => s + z.per100, 0) / Math.max(1, today.length);
+---
+<Base title={`Egg Rate Today ${dateEn(data.latest)}: NECC Egg Price in All Cities | आज का अंडे का भाव`}
+      description={`NECC egg rate today ${dateEn(data.latest)} for ${zones.length} cities. Average ₹${avg.toFixed(0)} per 100 eggs (₹${(avg / 100).toFixed(2)} per egg). आज का अंडे का भाव ${dateHi(data.latest)}.`}>
+  <p class="crumbs"><a href="/">Home</a> › Egg rate</p>
+  <h1>Egg Rate Today <span class="hi">| आज का अंडे का भाव</span></h1>
+  <p class="answer">On {dateEn(data.latest)} the NECC egg price averaged <strong>₹{avg.toFixed(0)} per 100 eggs (₹{(avg / 100).toFixed(2)} per egg)</strong> across {today.length} zones. Cheapest: {today[0]?.zone} ₹{today[0]?.per100}; dearest: {today[today.length - 1]?.zone} ₹{today[today.length - 1]?.per100}.</p>
+  <div class="scroll"><table>
+    <tr><th>City / zone</th><th>Date</th><th class="num">₹ per 100</th><th class="num">₹ per egg</th><th class="num">Change</th></tr>
+    {zones.map((z: any) => (
+      <tr>
+        <td>{held.includes(`egg-rate/${z.slug}`) ? z.zone : <a href={`/egg-rate/${z.slug}/`}>{z.zone}</a>}</td><td>{dateEn(z.date)}</td>
+        <td class="num">{z.per100}</td><td class="num">{(z.per100 / 100).toFixed(2)}</td>
+        <td class={`num ${z.change > 0 ? 'up' : z.change < 0 ? 'down' : ''}`}>{z.change == null ? '—' : z.change > 0 ? `▲ ${z.change}` : z.change < 0 ? `▼ ${Math.abs(z.change)}` : '='}</td>
+      </tr>
+    ))}
+  </table></div>
+  <p class="muted">NECC suggested prices; the Committee does not engage in trade and actual prices may vary.</p>
+</Base>

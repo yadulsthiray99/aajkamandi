@@ -1,0 +1,20 @@
+---
+import Base from '../../layouts/Base.astro';
+import held from '../../data/holdback.json';
+import data from '../../data/mandi.json';
+import { inr, dateEn } from '../../lib/fmt';
+---
+<Base title={`Crop Mandi Bhav Today ${dateEn(data.latest)} | फसलों के आज के भाव`}
+      description="Today's mandi prices for major crops across India: mustard, garlic, maize, onion, wheat, soyabean and more. फसलों के ताज़ा भाव।">
+  <p class="crumbs"><a href="/">Home</a> › Crops</p>
+  <h1>Crop Prices Today <span class="hi">| फसलों के भाव</span></h1>
+  <div class="scroll"><table>
+    <tr><th>Crop</th><th class="num">Mandis</th><th class="num">India median ₹/qtl</th><th class="num">Range ₹</th></tr>
+    {data.crops.filter((c: any) => !held.includes(`bhav/${c.slug}`)).map((c: any) => (
+      <tr>
+        <td><a href={`/bhav/${c.slug}/`}>{c.label}</a> <span class="hi muted">{c.hindi}</span></td>
+        <td class="num">{c.markets}</td><td class="num"><strong>{inr(c.modal_median)}</strong></td><td class="num">{inr(c.min)}–{inr(c.max)}</td>
+      </tr>
+    ))}
+  </table></div>
+</Base>

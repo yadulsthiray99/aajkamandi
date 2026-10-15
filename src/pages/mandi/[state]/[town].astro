@@ -1,0 +1,94 @@
+---
+import held from '../../../data/holdback.json';
+import Base from '../../../layouts/Base.astro';
+import Trend from '../../../components/Trend.astro';
+import data from '../../../data/mandi.json';
+import { inr, perKg, dateEn, dateHi, change } from '../../../lib/fmt';
+
+export function getStaticPaths() {
+  return data.towns.filter((t: any) => !held.includes(`mandi/${t.state_slug}/${t.slug}`)).map((t: any) => ({ params: { state: t.state_slug, town: t.slug }, props: { t } }));
+}
+const { t } = Astro.props as { t: any };
+const hiName = t.town_hi ?? t.town;
+const crops = [...new Set(t.rows.map((r: any) => r.commodity))] as string[];
+const headline = t.rows.filter((r: any, i: number, arr: any[]) => arr.findIndex((x: any) => x.commodity === r.commodity) === i).slice(0, 3);
+const trends = Object.entries(t.history as Record<string, { date: string; modal: number }[]>).slice(0, 6);
+const ups = t.rows.filter((r: any) => r.prev_modal && r.modal > r.prev_modal).length;
+const downs = t.rows.filter((r: any) => r.prev_modal && r.modal < r.prev_modal).length;
+// Crop pages we publish, keyed by Agmarknet commodity name, so table rows can link to them
+const cropPage = new Map(data.crops.filter((c: any) => !held.includes(`bhav/${c.slug}`)).map((c: any) => [c.name, c.slug]));
+// Questions Google shows for these searches ("बैतूल मक्का मंडी का आज का भाव क्या है?"), answered from the data
+const faqRows = t.rows.filter((r: any, i: number, arr: any[]) => arr.findIndex((x: any) => x.commodity === r.commodity) === i).slice(0, 3);
+const faqs = faqRows.map((r: any) => {
+  const crop = r.hindi ?? r.label;
+  const c = change(r.modal, r.prev_modal);
+  const move = c && c.diff !== 0 ? ` (${c.diff > 0 ? '▲' : '▼'} ₹${inr(Math.abs(c.diff))})` : '';
+  return {
+    q: `${hiName} मंडी में आज ${crop} का भाव क्या है?`,
+    a: `${crop} ${r.variety}: ₹${inr(r.modal)}/क्विंटल${move}, ₹${inr(r.min)}–₹${inr(r.max)}, ${dateHi(t.date)}।`,
+  };
+});
+const title = `${t.town} Mandi Bhav Today ${dateEn(t.date)} | ${hiName} मंडी भाव आज`;
+const description = `${hiName} मंडी (${t.state_hi ?? t.state}) के ताज़ा भाव ${dateHi(t.date)}: ${headline.map((r: any) => `${r.hindi ?? r.label} ₹${inr(r.modal)}`).join(', ')} प्रति क्विंटल। ${t.rows.length} crop prices with min, max and modal rates.`;
+const schema = [
+  { '@context': 'https://schema.org', '@type': 'BreadcrumbList', itemListElement: [
+    { '@type': 'ListItem', position: 1, name: 'Home', item: 'https://aajkamandi.com/' },
+    { '@type': 'ListItem', position: 2, name: 'Mandi', item: 'https://aajkamandi.com/mandi/' },
+    { '@type': 'ListItem', position: 3, name: `${t.town} mandi bhav` } ] },
+  { '@context': 'https://schema.org', '@type': 'Dataset', name: `${t.town} mandi prices (${t.state})`,
+    description: `Daily crop prices reported by ${t.yards.join(', ')} to Agmarknet.`, temporalCoverage: t.date,
+    spatialCoverage: `${t.town}, ${t.district}, ${t.state}, India`, license: 'https://data.gov.in/government-open-data-license-india',
+    creator: { '@type': 'Organization', name: 'Agmarknet, Ministry of Agriculture & Farmers Welfare' } },
+  { '@context': 'https://schema.org', '@type': 'FAQPage', inLanguage: 'hi',
+    mainEntity: faqs.map((f: any) => ({ '@type': 'Question', name: f.q, acceptedAnswer: { '@type': 'Answer', text: f.a } })) },
+];
+---
+<Base title={title} description={description} schema={schema} image={`/cards/${t.state_slug}/${t.slug}.png`}>
+  <p class="crumbs"><a href="/">Home</a> › <a href="/mandi/">Mandi</a> › {t.state} › {t.town}</p>
+  <h1>{t.town} Mandi Bhav Today <span class="hi">| {hiName} मंडी भाव</span></h1>
+  <p class="answer">
+    <span class="hi">{hiName} मंडी ({t.state_hi ?? t.state}) के ताज़ा भाव, {dateHi(t.date)}:</span>
+    {headline.map((r: any, i: number) => <>{i > 0 && ', '}<strong>{r.hindi ?? r.label} ₹{inr(r.modal)}</strong></>)} प्रति क्विंटल।
+    <br /><span class="muted">Latest prices reported on {dateEn(t.date)} for {t.rows.length} entries across {crops.length} crops{(ups || downs) ? `; ${ups} up and ${downs} down since the previous report` : ''}.</span>
+  </p>
+
+  <h2>{t.town} mandi rates ({dateEn(t.date)}) <span class="hi">— आज के भाव</span></h2>
+  <div class="scroll"><table>
+    <tr><th>फसल / Crop</th><th>Variety</th><th class="num">Min ₹</th><th class="num">Max ₹</th><th class="num">Modal ₹/qtl</th><th class="num">₹/kg</th><th class="num">Change</th></tr>
+    {t.rows.map((r: any) => {
+      const c = change(r.modal, r.prev_modal);
+      return (
+        <tr>
+          <td>{r.hindi && <span class="hi">{r.hindi}</span>}{r.hindi && <br />}{cropPage.has(r.commodity) ? <a class="muted" href={`/bhav/${cropPage.get(r.commodity)}/`}>{r.label}</a> : <span class="muted">{r.label}</span>}</td>
+          <td>{r.variety}{t.yards.length > 1 && <><br /><span class="muted">{r.yard}</span></>}</td>
+          <td class="num">{inr(r.min)}</td><td class="num">{inr(r.max)}</td><td class="num"><strong>{inr(r.modal)}</strong></td>
+          <td class="num">{perKg(r.modal)}</td>
+          <td class={`num ${c ? (c.diff > 0 ? 'up' : c.diff < 0 ? 'down' : '') : ''}`}>{c ? `${c.diff > 0 ? '▲' : c.diff < 0 ? '▼' : '='} ${inr(Math.abs(c.diff))}` : '—'}</td>
+        </tr>
+      );
+    })}
+  </table></div>
+  <p class="muted">Modal price is the rate at which most trade happened. Change compares with this mandi's previous report for the same crop.</p>
+
+  <figure style="margin:24px 0">
+    <img src={`/cards/${t.state_slug}/${t.slug}.png`} width="1200" height="630" loading="lazy" decoding="async"
+         alt={`${hiName} मंडी भाव ${dateHi(t.date)}: ${headline.map((r: any) => `${r.hindi ?? r.label} ₹${inr(r.modal)}`).join(', ')}`}
+         style="width:100%;height:auto;border:1px solid var(--line);border-radius:8px" />
+    <figcaption class="muted hi">आज का {hiName} मंडी भाव कार्ड — WhatsApp पर शेयर करें</figcaption>
+  </figure>
+
+  {trends.length > 0 && (
+    <>
+      <h2>Price trend at {t.town} mandi <span class="hi">— भाव का रुझान</span></h2>
+      <div class="trends">{trends.map(([c, pts]) => <Trend points={pts} label={c} />)}</div>
+    </>
+  )}
+
+  <h2>{hiName} मंडी भाव: सवाल-जवाब</h2>
+  {faqs.map((f: any) => (<><h3 class="hi">{f.q}</h3><p class="hi">{f.a}</p></>))}
+
+  <h2>About {t.town} mandi</h2>
+  <p>{t.district} district, {t.state}. Source yard{t.yards.length > 1 ? 's' : ''}: {t.yards.join(', ')} (Agmarknet). Reported on {t.days_reporting} of the last {data.days_stored} days.</p>
+
+  <p><a href={`/mandi/#${t.state_slug}`}>All {t.state} mandis</a> · <a href="/bhav/">Crop prices across India</a></p>
+</Base>
