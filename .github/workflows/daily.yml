@@ -40,9 +40,10 @@ jobs:
             exit 1
           fi
 
-      - name: Fetch data
+      - name: Fetch data (through the Cloudflare relay - data.gov.in refuses GitHub's runners)
         env:
           DATA_GOV_API_KEY: ${{ secrets.DATA_GOV_API_KEY }}
+          FETCH_RELAY: https://aajkamandi-fetch.aajkamandi.workers.dev
         run: |
           python scripts/fetch_mandi.py --backfill 3
           python scripts/fetch_eggs.py

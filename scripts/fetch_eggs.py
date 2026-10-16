@@ -9,6 +9,7 @@ NECC requires anyone disseminating its suggested prices to also show its clarifi
 import calendar
 import html
 import json
+import os
 import re
 import sys
 import urllib.parse
@@ -21,10 +22,30 @@ OUT = ROOT / "data" / "eggs"
 URL = "https://www.e2necc.com/home/eggprice"
 
 
+def _prefer_ipv4():
+    """Connect over IPv4 first: on networks without working IPv6 (common on home ISPs), Python would
+    otherwise wait ~21 s per Cloudflare IPv6 address before falling back."""
+    import socket
+    real = socket.getaddrinfo
+    def v4_first(*a, **k):
+        res = real(*a, **k)
+        return sorted(res, key=lambda r: r[0] != socket.AF_INET)
+    socket.getaddrinfo = v4_first
+
+
+if os.environ.get("FETCH_RELAY"):
+    _prefer_ipv4()
+
+
 def fetch(year, month):
     # The page shows the current month by default; the form posts month/year for older sheets.
     data = urllib.parse.urlencode({"ddlMonth": f"{month:02d}", "ddlYear": str(year), "rblReportType": "DailyReport"}).encode()
-    req = urllib.request.Request(URL, data=data, headers={"User-Agent": "Mozilla/5.0 (aajkamandi data fetcher)"})
+    relay = os.environ.get("FETCH_RELAY", "").rstrip("/")
+    if relay:  # GitHub Actions: NECC refuses GitHub's US runners, so go through the relay Worker (relay/)
+        req = urllib.request.Request(f"{relay}/necc", data=data, headers={
+            "User-Agent": "Mozilla/5.0 (aajkamandi data fetcher)", "x-relay-key": os.environ["DATA_GOV_API_KEY"]})
+    else:
+        req = urllib.request.Request(URL, data=data, headers={"User-Agent": "Mozilla/5.0 (aajkamandi data fetcher)"})
     with urllib.request.urlopen(req, timeout=60) as r:
         return r.read().decode("utf-8", errors="ignore")
 

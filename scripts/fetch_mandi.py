@@ -9,6 +9,8 @@ Usage:  python scripts/fetch_mandi.py                 # yesterday (run every mor
         python scripts/fetch_mandi.py 2026-10-13      # one date
         python scripts/fetch_mandi.py --backfill 90   # the last 90 days (skips dates already stored)
 Env:    DATA_GOV_API_KEY  (required - your own free key from data.gov.in)
+        FETCH_RELAY       (optional - base URL of the relay Worker in relay/; used in GitHub Actions,
+                           because data.gov.in refuses connections from GitHub's US runners)
 
 Writes: data/daily/YYYY-MM-DD.json.gz  (compact gzip JSON; Agmarknet prices are Rs per quintal)
 """
@@ -27,6 +29,21 @@ ROOT = Path(__file__).resolve().parent.parent
 DAILY = ROOT / "data" / "daily"
 PAGE = 1000
 PAUSE = 1.5  # seconds between requests; data.gov.in returns 429 if hit faster
+def _prefer_ipv4():
+    """Connect over IPv4 first: on networks without working IPv6 (common on home ISPs), Python would
+    otherwise wait ~21 s per Cloudflare IPv6 address before falling back."""
+    import socket
+    real = socket.getaddrinfo
+    def v4_first(*a, **k):
+        res = real(*a, **k)
+        return sorted(res, key=lambda r: r[0] != socket.AF_INET)
+    socket.getaddrinfo = v4_first
+
+
+if os.environ.get("FETCH_RELAY"):
+    _prefer_ipv4()
+
+
 FIELDS = {"State": "state", "District": "district", "Market": "market", "Commodity": "commodity",
           "Variety": "variety", "Grade": "grade", "Min_Price": "min_price", "Max_Price": "max_price",
           "Modal_Price": "modal_price"}
@@ -34,7 +51,9 @@ FIELDS = {"State": "state", "District": "district", "Market": "market", "Commodi
 
 def get(params, key, retries=6):
     params = {"api-key": key, "format": "json", **params}
-    url = f"https://api.data.gov.in/resource/{RESOURCE}?" + urllib.parse.urlencode(params)
+    relay = os.environ.get("FETCH_RELAY", "").rstrip("/")
+    base = f"{relay}/dgov/{RESOURCE}" if relay else f"https://api.data.gov.in/resource/{RESOURCE}"
+    url = f"{base}?" + urllib.parse.urlencode(params)
     # data.gov.in stalls requests carrying Python's default User-Agent, so always send our own.
     req = urllib.request.Request(url, headers={"User-Agent": "Mozilla/5.0 (compatible; aajkamandi-fetcher/1.0)"})
     for attempt in range(retries):
