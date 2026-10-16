@@ -25,6 +25,21 @@ jobs:
           node-version: "22"
           cache: npm
 
+      - name: Check secrets are set (values are never printed)
+        env:
+          DATA_GOV_API_KEY: ${{ secrets.DATA_GOV_API_KEY }}
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+        run: |
+          missing=""
+          for name in DATA_GOV_API_KEY CLOUDFLARE_API_TOKEN CLOUDFLARE_ACCOUNT_ID; do
+            if [ -z "${!name}" ]; then missing="$missing $name"; else echo "$name: set (${#name} chars name)"; fi
+          done
+          if [ -n "$missing" ]; then
+            echo "::error title=Missing repository secrets::Not set:$missing. Add them under Settings > Secrets and variables > Actions > Repository secrets (exact names, Secrets tab - not Variables)."
+            exit 1
+          fi
+
       - name: Fetch data
         env:
           DATA_GOV_API_KEY: ${{ secrets.DATA_GOV_API_KEY }}
