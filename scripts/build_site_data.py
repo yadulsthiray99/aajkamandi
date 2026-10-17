@@ -140,7 +140,8 @@ def load_town_demand():
 
 def build_mandi():
     days = {}
-    for f in sorted(DAILY.glob("*.json*")):
+    # date-named snapshots only (YYYY-MM-DD.json[.gz]); _totals.json is fetch bookkeeping, not prices
+    for f in sorted(DAILY.glob("[0-9][0-9][0-9][0-9]-[0-9][0-9]-[0-9][0-9].json*")):
         day = f.name.split(".")[0]
         raw = gzip.decompress(f.read_bytes()) if f.suffix == ".gz" else f.read_bytes()
         days[day] = json.loads(raw.decode("utf-8"))
