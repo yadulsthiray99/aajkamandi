@@ -1,7 +1,9 @@
 [
  "egg-rate/bengaluru",
  "egg-rate/jabalpur",
- "egg-rate/namakkal",
  "egg-rate/pune",
+ "mandi/madhya-pradesh/guna",
+ "mandi/madhya-pradesh/khirkiya",
+ "mandi/madhya-pradesh/sironj",
  "mandi/rajasthan/kota"
 ]
