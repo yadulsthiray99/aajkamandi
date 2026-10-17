@@ -14,7 +14,7 @@ import re
 import sys
 import urllib.parse
 import urllib.request
-from datetime import date
+from datetime import date, datetime, timedelta, timezone
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
@@ -72,7 +72,7 @@ def parse(page, year, month):
 
 
 def main():
-    today = date.today()
+    today = datetime.now(timezone(timedelta(hours=5, minutes=30))).date()  # India time (runners are UTC)
     year, month = (int(sys.argv[1]), int(sys.argv[2])) if len(sys.argv) == 3 else (today.year, today.month)
     zones = parse(fetch(year, month), year, month)
     if not zones:

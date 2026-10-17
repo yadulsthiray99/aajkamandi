@@ -5,7 +5,8 @@ Source: "Variety-wise Daily Market Prices Data of Commodity" (Agmarknet, Ministr
         (The "Current Daily Price" feed only holds a partial, still-filling view of today, with
         very little Madhya Pradesh / Rajasthan data, so we don't use it.)
 
-Usage:  python scripts/fetch_mandi.py                 # yesterday (run every morning)
+Usage:  python scripts/fetch_mandi.py --check         # 1 request: has yesterday's data arrived or grown?
+        python scripts/fetch_mandi.py                 # yesterday (run every morning)
         python scripts/fetch_mandi.py 2026-10-13      # one date
         python scripts/fetch_mandi.py --backfill 90   # the last 90 days (skips dates already stored)
 Env:    DATA_GOV_API_KEY  (required - your own free key from data.gov.in)
@@ -13,6 +14,9 @@ Env:    DATA_GOV_API_KEY  (required - your own free key from data.gov.in)
                            because data.gov.in refuses connections from GitHub's US runners)
 
 Writes: data/daily/YYYY-MM-DD.json.gz  (compact gzip JSON; Agmarknet prices are Rs per quintal)
+        data/daily/_totals.json        (rows data.gov.in reported per date, so later runs can tell
+                                        when a day that was published in part has grown)
+All dates are India time: GitHub's runners are on UTC, which is still "yesterday" before 05:30 IST.
 """
 import gzip
 import json
@@ -21,7 +25,7 @@ import sys
 import time
 import urllib.parse
 import urllib.request
-from datetime import date, timedelta
+from datetime import date, datetime, timedelta, timezone
 from pathlib import Path
 
 RESOURCE = "35985678-0d79-46b4-9ed6-6f13308a1d24"
@@ -29,6 +33,26 @@ ROOT = Path(__file__).resolve().parent.parent
 DAILY = ROOT / "data" / "daily"
 PAGE = 1000
 PAUSE = 1.5  # seconds between requests; data.gov.in returns 429 if hit faster
+TOTALS = DAILY / "_totals.json"
+IST = timezone(timedelta(hours=5, minutes=30))
+
+
+def today_ist() -> date:
+    return datetime.now(IST).date()
+
+
+def load_totals() -> dict:
+    try:
+        return json.loads(TOTALS.read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        return {}
+
+
+def save_total(d: date, total: int):
+    totals = load_totals()
+    totals[d.isoformat()] = total
+    DAILY.mkdir(parents=True, exist_ok=True)
+    TOTALS.write_text(json.dumps(dict(sorted(totals.items())), indent=0), encoding="utf-8")
 def _prefer_ipv4():
     """Connect over IPv4 first: on networks without working IPv6 (common on home ISPs), Python would
     otherwise wait ~21 s per Cloudflare IPv6 address before falling back."""
@@ -94,8 +118,19 @@ def fetch_day(d: date, key: str):
     if rows:
         DAILY.mkdir(parents=True, exist_ok=True)
         path.write_bytes(gzip.compress(json.dumps(rows, ensure_ascii=False, separators=(",", ":")).encode("utf-8")))
+    if rows:
+        save_total(d, total)
     print(f"{d.isoformat()}: {len(rows)} rows (api total {total})")
     return len(rows)
+
+
+def api_total(d: date, key: str) -> int:
+    return int(get({"limit": 1, "offset": 0, "filters[Arrival_Date]": d.strftime("%d/%m/%Y")}, key).get("total", 0))
+
+
+def stale(d: date, key: str) -> bool:
+    """True when data.gov.in has more rows for d than we stored (new day, or a day that grew)."""
+    return api_total(d, key) > load_totals().get(d.isoformat(), 0)
 
 
 def main():
@@ -103,16 +138,26 @@ def main():
     if not key:
         raise SystemExit("Set DATA_GOV_API_KEY (your own data.gov.in key).")
     args = sys.argv[1:]
+    yesterday = today_ist() - timedelta(days=1)
+    if args[:1] == ["--check"]:
+        new = stale(yesterday, key)
+        print(f"{yesterday.isoformat()}: {'NEW data' if new else 'nothing new'}")
+        if os.environ.get("GITHUB_OUTPUT"):
+            with open(os.environ["GITHUB_OUTPUT"], "a") as f:
+                f.write(f"new={'true' if new else 'false'}\n")
+        return
     if args[:1] == ["--backfill"]:
         days = int(args[1]) if len(args) > 1 else 30
         for i in range(1, days + 1):
-            d = date.today() - timedelta(days=i)
-            if (DAILY / f"{d.isoformat()}.json.gz").exists() or (DAILY / f"{d.isoformat()}.json").exists():
+            d = today_ist() - timedelta(days=i)
+            stored = (DAILY / f"{d.isoformat()}.json.gz").exists() or (DAILY / f"{d.isoformat()}.json").exists()
+            # always re-check the last 2 days: data.gov.in can add late rows after first publishing a day
+            if stored and (i > 2 or not stale(d, key)):
                 continue
             fetch_day(d, key)
             time.sleep(PAUSE)
     else:
-        d = date.fromisoformat(args[0]) if args else date.today() - timedelta(days=1)
+        d = date.fromisoformat(args[0]) if args else yesterday
         fetch_day(d, key)
 
 
