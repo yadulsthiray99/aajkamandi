@@ -1,10 +1,3 @@
-
-
-!.dev.vars.example
-!.env.example
-# generated daily by scripts/make_cards.mjs
-# local-only
-# wrangler files
 .astro/
 .dev.vars*
 .env*
@@ -20,3 +13,6 @@ public/live.json
 src/data/eggs.json
 src/data/holdback.json
 src/data/mandi.json
+# keep example env files
+!.dev.vars.example
+!.env.example
