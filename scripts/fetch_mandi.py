@@ -117,7 +117,7 @@ def fetch_day(d: date, key: str):
             rows.append(row)
     if rows:
         DAILY.mkdir(parents=True, exist_ok=True)
-        path.write_bytes(gzip.compress(json.dumps(rows, ensure_ascii=False, separators=(",", ":")).encode("utf-8")))
+        path.write_bytes(gzip.compress(json.dumps(rows, ensure_ascii=False, separators=(",", ":")).encode("utf-8"), mtime=0))  # mtime=0: same data -> same bytes, no git noise
     if rows:
         save_total(d, total)
     print(f"{d.isoformat()}: {len(rows)} rows (api total {total})")

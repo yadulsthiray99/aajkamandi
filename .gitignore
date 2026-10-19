@@ -1,18 +1,22 @@
-node_modules/
-dist/
-.astro/
 
-# wrangler files
-.wrangler
-.dev.vars*
+
 !.dev.vars.example
-.env*
 !.env.example
-
 # generated daily by scripts/make_cards.mjs
-public/cards/
-
 # local-only
+# wrangler files
+.astro/
+.dev.vars*
+.env*
+.wrangler
 data/current_feed/
 data/fetch_log.txt
 data/kw_candidates.json
+data/today.json.gz
+dist/
+node_modules/
+public/cards/
+public/live.json
+src/data/eggs.json
+src/data/holdback.json
+src/data/mandi.json

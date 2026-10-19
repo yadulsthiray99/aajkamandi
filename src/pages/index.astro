@@ -5,12 +5,22 @@ import mandi from '../data/mandi.json';
 import eggs from '../data/eggs.json';
 import { inr, dateEn, dateHi } from '../lib/fmt';
 const top = mandi.towns.filter((t: any) => !held.includes(`mandi/${t.state_slug}/${t.slug}`)).slice(0, 20);
+const today = (mandi as any).today as { date: string; time: string; towns: number; reports: number } | null;
+const live = mandi.towns.filter((t: any) => t.today && !held.includes(`mandi/${t.state_slug}/${t.slug}`));
+const pageDate = today ? today.date : mandi.latest;
 const schema = [{ '@context': 'https://schema.org', '@type': 'WebSite', name: 'AajKaMandi', url: 'https://aajkamandi.com/', inLanguage: ['hi', 'en'] }];
 ---
-<Base title={`Aaj Ka Mandi Bhav ${dateEn(mandi.latest)} | आज का मंडी भाव - AajKaMandi`}
-      description={`आज का मंडी भाव ${dateHi(mandi.latest)}: बैतूल, नीमच, इंदौर, मंदसौर, कोटा समेत ${mandi.towns.length} मंडियों के ताज़ा भाव। Official Agmarknet data, updated daily. Egg rate today too.`} schema={schema}>
+<Base title={`Aaj Ka Mandi Bhav ${dateEn(pageDate)} | आज का मंडी भाव - AajKaMandi`}
+      description={`आज का मंडी भाव ${dateHi(pageDate)}: बैतूल, नीमच, इंदौर, मंदसौर, कोटा समेत ${mandi.towns.length} मंडियों के ताज़ा भाव। Official Agmarknet data, updated daily. Egg rate today too.`} schema={schema}>
   <h1>आज का मंडी भाव <span style="font-weight:400">| Mandi Bhav Today</span></h1>
-  <p class="answer">Latest official mandi prices for {dateEn(mandi.latest)} ({mandi.total_reports.toLocaleString('en-IN')} price reports from Agmarknet), updated every morning. <span class="hi">हर सुबह अपडेट।</span></p>
+  <p class="answer">Latest official mandi prices for {dateEn(mandi.latest)} ({mandi.total_reports.toLocaleString('en-IN')} price reports from Agmarknet), completed every morning; today's prices are added hourly as they arrive. <span class="hi">पूरे भाव हर सुबह, आज के भाव हर घंटे।</span></p>
+  {today && live.length > 0 && (
+    <>
+      <h2 class="hi">आज {dateHi(today.date)} के ताज़ा भाव <span class="muted">— {today.time} बजे तक</span></h2>
+      <p class="muted">Prices reported so far today, updated every hour ({today.reports.toLocaleString('en-IN')} reports across India). Full-day prices are completed next morning.</p>
+      <ul class="grid">{live.map((t: any) => <li><a href={`/mandi/${t.state_slug}/${t.slug}/`}>{t.town}<br /><span class="hi muted">{t.today.rows.length} भाव · {t.today.time}</span></a></li>)}</ul>
+    </>
+  )}
   <h2>Popular mandis <span class="hi">— प्रमुख मंडियां</span></h2>
   <ul class="grid">{top.map((t: any) => <li><a href={`/mandi/${t.state_slug}/${t.slug}/`}>{t.town}<br /><span class="hi muted">{t.town_hi}</span></a></li>)}</ul>
   <p><a href="/mandi/">All mandis</a></p>

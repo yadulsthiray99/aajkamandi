@@ -10,9 +10,16 @@ export function getStaticPaths() {
 }
 const { t } = Astro.props as { t: any };
 const hiName = t.town_hi ?? t.town;
+// today's partial prices (hourly from the current-daily feed), when this town has any yet
+const td = t.today as { date: string; time: string; rows: any[] } | undefined;
+const tdHead = td ? td.rows.filter((r: any, i: number, arr: any[]) => arr.findIndex((x: any) => x.commodity === r.commodity) === i).slice(0, 3) : [];
+const pageDate = td ? td.date : t.date;
 const crops = [...new Set(t.rows.map((r: any) => r.commodity))] as string[];
 const headline = t.rows.filter((r: any, i: number, arr: any[]) => arr.findIndex((x: any) => x.commodity === r.commodity) === i).slice(0, 3);
 const trends = Object.entries(t.history as Record<string, { date: string; modal: number }[]>).slice(0, 6);
+// last 5 reported modal prices for the main crops: real town-specific numbers, useful on quiet (Sunday) days too
+const recentDates = [...new Set(trends.flatMap(([, pts]) => pts.map((p) => p.date)))].sort().slice(-5);
+const recent = trends.slice(0, 5).map(([c, pts]) => ({ c, vals: recentDates.map((d) => pts.find((p) => p.date === d)?.modal ?? null) }));
 const ups = t.rows.filter((r: any) => r.prev_modal && r.modal > r.prev_modal).length;
 const downs = t.rows.filter((r: any) => r.prev_modal && r.modal < r.prev_modal).length;
 // Crop pages we publish, keyed by Agmarknet commodity name, so table rows can link to them
@@ -28,8 +35,10 @@ const faqs = faqRows.map((r: any) => {
     a: `${crop} ${r.variety}: ₹${inr(r.modal)}/क्विंटल${move}, ₹${inr(r.min)}–₹${inr(r.max)}, ${dateHi(t.date)}।`,
   };
 });
-const title = `${t.town} Mandi Bhav Today ${dateEn(t.date)} | ${hiName} मंडी भाव आज`;
-const description = `${hiName} मंडी (${t.state_hi ?? t.state}) के ताज़ा भाव ${dateHi(t.date)}: ${headline.map((r: any) => `${r.hindi ?? r.label} ₹${inr(r.modal)}`).join(', ')} प्रति क्विंटल। ${t.rows.length} crop prices with min, max and modal rates.`;
+const title = `${t.town} Mandi Bhav Today ${dateEn(pageDate)} | ${hiName} मंडी भाव आज`;
+const description = td
+  ? `${hiName} मंडी आज ${dateHi(td.date)} (${td.time} बजे तक): ${tdHead.map((r: any) => `${r.hindi ?? r.label} ₹${inr(r.modal)}`).join(', ')} प्रति क्विंटल। साथ में ${dateHi(t.date)} के पूरे ${t.rows.length} भाव और रुझान।`
+  : `${hiName} मंडी (${t.state_hi ?? t.state}) के ताज़ा भाव ${dateHi(t.date)}: ${headline.map((r: any) => `${r.hindi ?? r.label} ₹${inr(r.modal)}`).join(', ')} प्रति क्विंटल। ${t.rows.length} crop prices with min, max and modal rates.`;
 const schema = [
   { '@context': 'https://schema.org', '@type': 'BreadcrumbList', itemListElement: [
     { '@type': 'ListItem', position: 1, name: 'Home', item: 'https://aajkamandi.com/' },
@@ -47,12 +56,33 @@ const schema = [
   <p class="crumbs"><a href="/">Home</a> › <a href="/mandi/">Mandi</a> › {t.state} › {t.town}</p>
   <h1>{t.town} Mandi Bhav Today <span class="hi">| {hiName} मंडी भाव</span></h1>
   <p class="answer">
-    <span class="hi">{hiName} मंडी ({t.state_hi ?? t.state}) के ताज़ा भाव, {dateHi(t.date)}:</span>
+    {td && <><span class="hi"><strong>आज {dateHi(td.date)}, {td.time} बजे तक:</strong> {tdHead.map((r: any, i: number) => <>{i > 0 && ', '}<strong>{r.hindi ?? r.label} ₹{inr(r.modal)}</strong></>)}।</span><br /></>}
+    <span class="hi">{hiName} मंडी ({t.state_hi ?? t.state}) के {td ? 'पूरे दिन के' : 'ताज़ा'} भाव, {dateHi(t.date)}:</span>
     {headline.map((r: any, i: number) => <>{i > 0 && ', '}<strong>{r.hindi ?? r.label} ₹{inr(r.modal)}</strong></>)} प्रति क्विंटल।
     <br /><span class="muted">Latest prices reported on {dateEn(t.date)} for {t.rows.length} entries across {crops.length} crops{(ups || downs) ? `; ${ups} up and ${downs} down since the previous report` : ''}.</span>
   </p>
 
-  <h2>{t.town} mandi rates ({dateEn(t.date)}) <span class="hi">— आज के भाव</span></h2>
+  {td && (
+    <>
+      <h2 class="hi">{hiName} मंडी: आज के {td.rows.length} भाव <span class="muted">({td.time} तक)</span></h2>
+      <div class="scroll"><table>
+        <tr><th>फसल / Crop</th><th>Variety</th><th class="num">Min ₹</th><th class="num">Max ₹</th><th class="num">Modal ₹/qtl</th><th class="num">vs {dateEn(t.date).replace(/ \d{4}$/, '')}</th></tr>
+        {td.rows.map((r: any) => {
+          const c = change(r.modal, r.prev_modal);
+          return (
+            <tr>
+              <td>{r.hindi && <span class="hi">{r.hindi}</span>}{r.hindi && <br />}<span class="muted">{r.label}</span></td>
+              <td>{r.variety}{t.yards.length > 1 && <><br /><span class="muted">{r.yard}</span></>}</td>
+              <td class="num">{inr(r.min)}</td><td class="num">{inr(r.max)}</td><td class="num"><strong>{inr(r.modal)}</strong></td>
+              <td class={`num ${c ? (c.diff > 0 ? 'up' : c.diff < 0 ? 'down' : '') : ''}`}>{c ? `${c.diff > 0 ? '▲' : c.diff < 0 ? '▼' : '='} ${inr(Math.abs(c.diff))}` : '—'}</td>
+            </tr>
+          );
+        })}
+      </table></div>
+    </>
+  )}
+
+  <h2>{t.town} mandi rates ({dateEn(t.date)}) <span class="hi">— {td ? 'पूरे दिन के भाव' : 'आज के भाव'}</span></h2>
   <div class="scroll"><table>
     <tr><th>फसल / Crop</th><th>Variety</th><th class="num">Min ₹</th><th class="num">Max ₹</th><th class="num">Modal ₹/qtl</th><th class="num">₹/kg</th><th class="num">Change</th></tr>
     {t.rows.map((r: any) => {
@@ -81,6 +111,16 @@ const schema = [
     <>
       <h2>Price trend at {t.town} mandi <span class="hi">— भाव का रुझान</span></h2>
       <div class="trends">{trends.map(([c, pts]) => <Trend points={pts} label={c} />)}</div>
+    </>
+  )}
+
+  {recentDates.length >= 3 && (
+    <>
+      <h2>{t.town}: recent modal prices <span class="hi">— पिछले भाव (₹/क्विंटल)</span></h2>
+      <div class="scroll"><table class="small">
+        <tr><th>Crop</th>{recentDates.map((d) => <th class="num">{dateEn(d).replace(/ \d{4}$/, '')}</th>)}</tr>
+        {recent.map((r) => <tr><td>{r.c}</td>{r.vals.map((v) => <td class="num">{v == null ? '—' : inr(v)}</td>)}</tr>)}
+      </table></div>
     </>
   )}
 

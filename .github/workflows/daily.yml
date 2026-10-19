@@ -1,40 +1,37 @@
-# Every morning (India time): publish yesterday's mandi prices as soon as data.gov.in has them,
-# plus this month's egg rates - rebuild with the quality gate, deploy to Cloudflare, and commit
-# the new data (the stored daily history is what powers the trend charts).
-#
-# data.gov.in publishes the previous day's complete batch around 05:00 IST, so between 04:30 and
-# 07:30 IST we poll every 10 minutes with ONE cheap request ("has yesterday's data arrived or
-# grown?") and only fetch + build + deploy when it has. 10:00 and 14:00 IST always do a full
-# refresh (egg rates, late rows) and act as retries if the source was down earlier.
+# Keeps aajkamandi.com as fresh as data.gov.in allows:
+#  * 04:30-07:30 IST, every 10 min: one cheap request - has yesterday's COMPLETE data arrived (or grown)?
+#    data.gov.in publishes it around 05:05 IST; we publish within ~10 minutes of that.
+#  * 09:00-21:00 IST, hourly: TODAY's partial prices from the "current daily" feed (+ egg rates),
+#    shown on town pages as "aaj ke bhav - ab tak". Rebuild + deploy only when the data changed
+#    (fingerprint compared with the live site's /live.json).
+# Git stores only real data (complete days, egg rates); generated files are rebuilt every run.
 name: daily-update
 
 on:
   schedule:
-    - cron: "*/10 23 * * *"   # 04:30-05:20 IST  poll
+    - cron: "*/10 23 * * *"   # 04:30-05:20 IST  poll for yesterday's complete data
     - cron: "*/10 0 * * *"    # 05:30-06:20 IST  poll
     - cron: "*/10 1 * * *"    # 06:30-07:20 IST  poll
-    - cron: "30 4 * * *"      # 10:00 IST full refresh / retry
-    - cron: "30 8 * * *"      # 14:00 IST full refresh / last try - only this one reports a failure
+    - cron: "30 3-15 * * *"   # 09:00-21:00 IST  hourly: today's prices, egg rates, late rows
   workflow_dispatch: {}
 
 permissions:
   contents: write
 
-# never run two updates at once (a slow fetch could overlap the next poll)
+# never run two updates at once (a slow fetch could overlap the next run)
 concurrency:
   group: daily-update
   cancel-in-progress: false
 
 env:
   FETCH_RELAY: https://aajkamandi-fetch.aajkamandi.workers.dev
-  # full refresh (skip the "anything new?" check) at 10:00 / 14:00 IST and on manual runs
-  FORCE: ${{ github.event_name == 'workflow_dispatch' || github.event.schedule == '30 4 * * *' || github.event.schedule == '30 8 * * *' }}
-  LAST_TRY: ${{ github.event_name == 'workflow_dispatch' || github.event.schedule == '30 8 * * *' }}
+  POLL: ${{ github.event.schedule == '*/10 23 * * *' || github.event.schedule == '*/10 0 * * *' || github.event.schedule == '*/10 1 * * *' }}
+  MANUAL: ${{ github.event_name == 'workflow_dispatch' }}
 
 jobs:
   update:
     runs-on: ubuntu-24.04   # pinned: ubuntu-latest moves to Ubuntu 26 from 2026-10-19
-    timeout-minutes: 60
+    timeout-minutes: 45
     steps:
       - uses: actions/checkout@v5
       - uses: actions/setup-python@v6
@@ -49,20 +46,20 @@ jobs:
         run: |
           missing=""
           for name in DATA_GOV_API_KEY CLOUDFLARE_API_TOKEN CLOUDFLARE_ACCOUNT_ID; do
-            if [ -z "${!name}" ]; then missing="$missing $name"; else echo "$name: set (${#name} chars name)"; fi
+            if [ -z "${!name}" ]; then missing="$missing $name"; fi
           done
           if [ -n "$missing" ]; then
-            echo "::error title=Missing repository secrets::Not set:$missing. Add them under Settings > Secrets and variables > Actions > Repository secrets (exact names, Secrets tab - not Variables)."
+            echo "::error title=Missing repository secrets::Not set:$missing. Add them under Settings > Secrets and variables > Actions > Repository secrets."
             exit 1
           fi
 
-      - name: Anything new on data.gov.in? (one request)
+      - name: Early morning - anything new on data.gov.in? (one request)
         id: check
         continue-on-error: true
         env:
           DATA_GOV_API_KEY: ${{ secrets.DATA_GOV_API_KEY }}
         run: |
-          if [ "$FORCE" = "true" ]; then echo "new=true" >> "$GITHUB_OUTPUT"; echo "Full refresh run"; exit 0; fi
+          if [ "$POLL" != "true" ]; then echo "new=true" >> "$GITHUB_OUTPUT"; echo "Hourly/manual run"; exit 0; fi
           python scripts/fetch_mandi.py --check
 
       - name: Fetch data (through the Cloudflare relay - data.gov.in refuses GitHub's runners)
@@ -74,49 +71,63 @@ jobs:
         run: |
           python scripts/fetch_mandi.py --backfill 3
           python scripts/fetch_eggs.py
+          # today's partial feed is a bonus: if it is down, still publish the complete data
+          python scripts/fetch_today.py || echo "::warning title=Today feed unavailable::current-daily feed did not respond; publishing without today's prices"
 
-      - name: Source unreachable - stop here (a later scheduled run retries)
+      - name: Did anything change since the live site was built?
+        id: diff
+        if: steps.fetch.outcome == 'success'
+        run: |
+          new=$(python scripts/digest.py)
+          live=$(curl -s -m 30 https://aajkamandi.com/live.json | python -c "import json,sys; print(json.load(sys.stdin).get('digest',''))" 2>/dev/null || true)
+          echo "data $new | live ${live:-none}"
+          if [ "$new" = "$live" ] && [ "$MANUAL" != "true" ]; then echo "changed=false" >> "$GITHUB_OUTPUT"; else echo "changed=true" >> "$GITHUB_OUTPUT"; fi
+
+      - name: Source unreachable - stop here (the next scheduled run retries)
         if: steps.check.outcome == 'failure' || steps.fetch.outcome == 'failure'
         run: |
-          if [ "$LAST_TRY" = "true" ]; then
-            echo "::error title=Data fetch failed::data.gov.in / NECC unreachable on the last daily attempt - the site keeps the previous data."
+          hour=$(TZ=Asia/Kolkata date +%H)
+          # only the 14:00 and 21:00 IST runs (or a manual run) report a failure by email
+          if [ "$MANUAL" = "true" ] || [ "$hour" = "14" ] || [ "$hour" = "21" ]; then
+            echo "::error title=Data fetch failed::data.gov.in / NECC unreachable - the site keeps the previous data."
             exit 1
           fi
           echo "::warning title=Data fetch failed::Source unreachable; the next scheduled run retries."
 
       - uses: actions/setup-node@v5
-        if: steps.fetch.outcome == 'success'
+        if: steps.diff.outputs.changed == 'true'
         with:
           node-version: "22"
           cache: npm
 
       - name: Build with quality gate
-        if: steps.fetch.outcome == 'success'
+        if: steps.diff.outputs.changed == 'true'
         run: |
           npm ci
           echo '[]' > src/data/holdback.json
+          python scripts/digest.py --write
           npm run build:gated
 
       - name: Deploy to Cloudflare (static assets, wrangler.jsonc)
-        if: steps.fetch.outcome == 'success'
+        if: steps.diff.outputs.changed == 'true'
         env:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
         run: |
           set -o pipefail
           if ! npx wrangler deploy 2>&1 | tee deploy.log; then
-            # surface the real Cloudflare message in the run summary
             msg=$(grep -iE "error|code: *[0-9]+|authentication|permission|not found|forbidden" deploy.log | grep -v "^\s*at " | head -6 | tr '\n' ' ')
             echo "::error title=Cloudflare deploy failed::${msg:-see the step log}"
             exit 1
           fi
 
-      - name: Commit new data
-        if: steps.fetch.outcome == 'success'
+      - name: Commit new data (complete days + egg rates only)
+        if: steps.diff.outputs.changed == 'true'
         run: |
           git config user.name "aajkamandi-bot"
           git config user.email "actions@users.noreply.github.com"
-          git add data/daily data/eggs src/data
-          git diff --cached --quiet || git commit -m "Daily data $(TZ=Asia/Kolkata date +%Y-%m-%d\ %H:%M) IST"
+          git add data/daily data/eggs
+          git diff --cached --quiet && { echo "no new stored data"; exit 0; }
+          git commit -m "Daily data $(TZ=Asia/Kolkata date +%Y-%m-%d\ %H:%M) IST"
           git pull --rebase --autostash -q || true
           git push

@@ -13,7 +13,7 @@ const perEgg = (z.per100 / 100).toFixed(2);
 const tray = ((z.per100 / 100) * 30).toFixed(0);
 const clean = (s: string) => s.replace(/\s*\(.*?\)/, '');
 const city = [z.zone, ...z.also].map(clean).join(' & ');
-const hist = z.history.slice().reverse();
+const hist = z.history.slice(-7).reverse();  // last 7 rates; the chart + monthly table cover the year
 const MON = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
 const monthName = (m: string) => `${MON[+m.slice(5, 7) - 1]} ${m.slice(0, 4)}`;
 const yoy = z.year_ago ? ((z.per100 - z.year_ago.per100) / z.year_ago.per100) * 100 : null;
@@ -51,6 +51,6 @@ const description = `${city} egg rate ${dateEn(z.date)}: ₹${z.per100} per 100 
     {hist.map((h: any) => <tr><td>{dateEn(h.date)}</td><td class="num">{h.per100}</td><td class="num">{(h.per100 / 100).toFixed(2)}</td><td class="num">{((h.per100 / 100) * 30).toFixed(0)}</td></tr>)}
   </table></div>
 
-  <p class="muted">Prices are NECC (National Egg Coordination Committee) suggested wholesale prices. NECC's note: these are suggested prices only; the Committee does not engage in trade, and actual prices may vary. Retail prices are usually higher.</p>
+  <p class="muted">NECC suggested wholesale prices; NECC does not trade and actual (retail) prices may differ.</p>
   <p><a href="/egg-rate/">Egg rate in all cities</a></p>
 </Base>

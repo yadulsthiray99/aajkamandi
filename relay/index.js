@@ -1,9 +1,10 @@
 // aajkamandi fetch relay (Cloudflare Worker).
 // data.gov.in and NECC refuse connections from GitHub's (US) runners, but accept Cloudflare,
 // so the daily GitHub job fetches through this relay. It is NOT an open proxy:
-//  - only two upstreams are allowed (the Agmarknet dataset on api.data.gov.in, and the NECC egg sheet)
+//  - only two upstreams are allowed (two Agmarknet datasets on api.data.gov.in, and the NECC egg sheet)
 //  - every request must carry our data.gov.in key, checked against the DATA_GOV_API_KEY Worker secret
-const DGOV_RESOURCES = new Set(["35985678-0d79-46b4-9ed6-6f13308a1d24"]);
+// variety-wise daily prices (complete next morning) + "current daily price" (today, filling hourly)
+const DGOV_RESOURCES = new Set(["35985678-0d79-46b4-9ed6-6f13308a1d24", "9ef84268-d588-465a-a308-a864a43d0070"]);
 const UA = "Mozilla/5.0 (compatible; aajkamandi-fetcher/1.0)";
 
 export default {

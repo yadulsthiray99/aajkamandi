@@ -309,17 +309,55 @@ def build_eggs():
     return {"latest": latest, "zones": sorted(zones, key=lambda z: z["zone"])}
 
 
+def attach_today(m):
+    """Add today's partial prices (data/today.json.gz from fetch_today.py) to published towns.
+    Only used when the file is for today's India date; otherwise towns show the last complete day only."""
+    from datetime import datetime, timedelta, timezone
+    f = ROOT / "data" / "today.json.gz"
+    today = datetime.now(timezone(timedelta(hours=5, minutes=30))).date().isoformat()
+    if not f.exists():
+        return None
+    t = json.loads(gzip.decompress(f.read_bytes()).decode("utf-8"))
+    if t.get("date") != today or t["date"] <= m["latest"]:
+        return None
+    by_town = defaultdict(list)
+    for r in t["rows"]:
+        by_town[(r["state"], r["district"], town_of(r["market"]))].append(r)
+    n = 0
+    for x in m["towns"]:
+        rows = by_town.get((x["state"], x["district"], x["town"]))
+        if not rows:
+            continue
+        seen, out = set(), []
+        for r in sorted(rows, key=lambda r: (priority(r["commodity"]), r["commodity"], r["variety"] or "")):
+            k = (r["market"], r["commodity"], r["variety"], r["grade"], r["modal_price"])
+            if k in seen:
+                continue
+            seen.add(k)
+            # yesterday's (last complete day) modal for the same yard/crop/variety, for the change column
+            prev = next((y for y in x["rows"] if (y["yard"], y["commodity"], y["variety"]) == (r["market"], r["commodity"], r["variety"])), None)
+            out.append({"commodity": r["commodity"], "label": display_name(r["commodity"]), "hindi": hindi_for(r["commodity"]),
+                        "yard": r["market"], "variety": r["variety"], "min": r["min_price"], "max": r["max_price"],
+                        "modal": r["modal_price"], "prev_date": x["date"] if prev else None,
+                        "prev_modal": prev["modal"] if prev else None})
+        x["today"] = {"date": t["date"], "time": t["fetched_at"], "rows": out}
+        n += 1
+    return {"date": t["date"], "time": t["fetched_at"], "towns": n, "reports": len(t["rows"])}
+
+
 def main():
     OUT.mkdir(parents=True, exist_ok=True)
     m = build_mandi()
     # Only published towns carry full detail into the site bundle
     m = dict(m, towns_total=len(m["towns"]), towns=[x for x in m["towns"] if x["published"]])
+    m["today"] = attach_today(m)
     (OUT / "mandi.json").write_text(json.dumps(m, ensure_ascii=False), encoding="utf-8")
     e = build_eggs()
     (OUT / "eggs.json").write_text(json.dumps(e, ensure_ascii=False), encoding="utf-8")
     pub_towns = [x for x in m["towns"] if x["published"]]
     print(f"mandi: {m['days_stored']} days stored, latest {m['latest']} ({m['total_reports']} reports) | "
           f"{m['towns_total']} towns, publish {len(pub_towns)} town pages + {len(m['crops'])} crop pages | eggs: {len(e['zones'])} zones")
+    print("today (partial feed):", m["today"])
     print("top published towns:", [(x["town"], x["state"], x["demand"], len(x["rows"])) for x in pub_towns[:12]])
 
 
