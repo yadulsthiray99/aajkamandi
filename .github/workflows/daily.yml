@@ -104,6 +104,7 @@ jobs:
         if: steps.diff.outputs.changed == 'true'
         run: |
           npm ci
+          mkdir -p src/data   # generated files are not in git, so the folder may not exist yet
           echo '[]' > src/data/holdback.json
           python scripts/digest.py --write
           npm run build:gated
