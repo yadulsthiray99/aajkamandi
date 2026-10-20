@@ -1,6 +1,7 @@
 """Print a fingerprint of the site's input data, so the hourly job only rebuilds when something changed.
 
-Covers: stored complete days (data/daily/_totals.json), this month's egg rates, and today's partial
+Covers: the site code (src, public, scripts, build config - so a design push deploys on the next run),
+stored complete days (data/daily/_totals.json), this month's egg rates, and today's partial
 prices (rows only - not the fetch time, which changes every run). Compared against the live site's
 /live.json, which each deploy writes.
 """
@@ -12,6 +13,17 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
 h = hashlib.sha256()
+# site code; generated files are skipped and line endings normalised (Windows checkout vs Linux runner)
+code = [ROOT / "astro.config.mjs", ROOT / "package-lock.json"]
+for d in ("src", "public", "scripts"):
+    code += [f for f in (ROOT / d).rglob("*") if f.is_file()]
+skip = ("src/data/", "public/cards/", "public/live.json")
+for f in sorted(code, key=lambda f: f.relative_to(ROOT).as_posix()):
+    rel = f.relative_to(ROOT).as_posix()
+    if rel.startswith(skip) or "__pycache__" in rel:
+        continue
+    h.update(rel.encode())
+    h.update(f.read_bytes().replace(b"\r\n", b"\n"))
 totals = ROOT / "data" / "daily" / "_totals.json"
 if totals.exists():
     h.update(totals.read_bytes())

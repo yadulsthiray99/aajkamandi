@@ -1,5 +1,6 @@
 ---
 import Base from '../layouts/Base.astro';
+import { hero } from '../brand.mjs';
 import held from '../data/holdback.json';
 import mandi from '../data/mandi.json';
 import eggs from '../data/eggs.json';
@@ -12,8 +13,13 @@ const schema = [{ '@context': 'https://schema.org', '@type': 'WebSite', name: 'A
 ---
 <Base title={`Aaj Ka Mandi Bhav ${dateEn(pageDate)} | आज का मंडी भाव - AajKaMandi`}
       description={`आज का मंडी भाव ${dateHi(pageDate)}: बैतूल, नीमच, इंदौर, मंदसौर, कोटा समेत ${mandi.towns.length} मंडियों के ताज़ा भाव। Official Agmarknet data, updated daily. Egg rate today too.`} schema={schema}>
-  <h1>आज का मंडी भाव <span style="font-weight:400">| Mandi Bhav Today</span></h1>
-  <p class="answer">Latest official mandi prices for {dateEn(mandi.latest)} ({mandi.total_reports.toLocaleString('en-IN')} price reports from Agmarknet), completed every morning; today's prices are added hourly as they arrive. <span class="hi">पूरे भाव हर सुबह, आज के भाव हर घंटे।</span></p>
+  <div class="hero">
+    <div>
+    <h1>आज का मंडी भाव <span style="font-weight:400">| Mandi Bhav Today</span></h1>
+    <p class="answer">Latest official mandi prices for {dateEn(mandi.latest)} ({mandi.total_reports.toLocaleString('en-IN')} price reports from Agmarknet), completed every morning; today's prices are added hourly as they arrive. <span class="hi">पूरे भाव हर सुबह, आज के भाव हर घंटे।</span></p>
+    </div>
+    <Fragment set:html={hero()} />
+  </div>
   {today && live.length > 0 && (
     <>
       <h2 class="hi">आज {dateHi(today.date)} के ताज़ा भाव <span class="muted">— {today.time} बजे तक</span></h2>
