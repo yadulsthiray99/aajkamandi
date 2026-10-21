@@ -61,6 +61,9 @@ const schema = [
     {headline.map((r: any, i: number) => <>{i > 0 && ', '}<strong>{r.hindi ?? r.label} ₹{inr(r.modal)}</strong></>)} प्रति क्विंटल।
     <br /><span class="muted">Latest prices reported on {dateEn(t.date)} for {t.rows.length} entries across {crops.length} crops{(ups || downs) ? `; ${ups} up and ${downs} down since the previous report` : ''}.</span>
   </p>
+  {!td && t.date < (data as any).latest && (
+    <p class="muted"><span class="hi">{hiName} मंडी ने {dateHi((data as any).latest)} और आज के भाव अभी तक जारी नहीं किए हैं, इसलिए यहाँ इसके सबसे ताज़ा भाव ({dateHi(t.date)}) दिखाए गए हैं। नए भाव आते ही यह पेज अपने-आप अपडेट हो जाता है।</span> {t.town} mandi has not reported prices for {dateEn((data as any).latest)} or today yet; these are its latest reported prices.</p>
+  )}
 
   {td && (
     <>
