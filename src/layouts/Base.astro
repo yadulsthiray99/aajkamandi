@@ -6,6 +6,8 @@ const canonical = new URL(Astro.url.pathname, Astro.site).href;
 const ogImage = new URL(image ?? '/og.png', Astro.site).href;
 const isHome = Astro.url.pathname === '/';
 const org = { '@context': 'https://schema.org', '@type': 'Organization', name: 'AajKaMandi', url: new URL('/', Astro.site).href, logo: new URL('/logo.png', Astro.site).href };
+// Google shows ~155-160 characters: trim long descriptions at a word boundary
+const desc = description.length > 160 ? description.slice(0, 157).replace(/\s+\S*$/, '') + '…' : description;
 ---
 <!doctype html>
 <html lang="hi-IN">
@@ -13,10 +15,10 @@ const org = { '@context': 'https://schema.org', '@type': 'Organization', name: '
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>{title}</title>
-    <meta name="description" content={description} />
+    <meta name="description" content={desc} />
     <link rel="canonical" href={canonical} />
     <meta property="og:title" content={title} />
-    <meta property="og:description" content={description} />
+    <meta property="og:description" content={desc} />
     <meta property="og:url" content={canonical} />
     <meta property="og:locale" content="hi_IN" />
     <meta property="og:site_name" content="AajKaMandi" />
