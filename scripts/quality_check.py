@@ -42,7 +42,7 @@ def check_links():
     broken = []
     for p in DIST.rglob("*.html"):
         for href in re.findall(r'href="(/[^"#?]*)"', p.read_text(encoding="utf-8")):
-            if href.endswith((".xml", ".svg", ".txt", ".ico", ".png", ".css", ".js")):
+            if href.endswith((".xml", ".svg", ".txt", ".ico", ".png", ".css", ".js", ".webmanifest")):
                 if not (DIST / href.lstrip("/")).exists():
                     broken.append((p, href))
                 continue
