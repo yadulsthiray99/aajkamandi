@@ -4,12 +4,18 @@ import Base from '../../layouts/Base.astro';
 import Trend from '../../components/Trend.astro';
 import data from '../../data/mandi.json';
 import { inr, perKg, dateEn, dateHi } from '../../lib/fmt';
+import { mspFor } from '../../data/msp';
+import { CROP_NOTES } from '../../data/crop-notes';
 
 export function getStaticPaths() {
   return data.crops.filter((c: any) => !held.includes(`bhav/${c.slug}`)).map((c: any) => ({ params: { crop: c.slug }, props: { c } }));
 }
 const { c } = Astro.props as { c: any };
 const hi = c.hindi ?? c.label;
+const msp = mspFor(c.slug);
+const note = CROP_NOTES[c.slug];
+const gap = msp ? Math.round((c.modal_median - msp.msp) / msp.msp * 100) : 0;
+const below = msp ? c.rows.filter((r: any) => r.modal_price < msp.msp).length : 0;
 const title = `${c.label} Mandi Bhav Today ${dateEn(c.date)} | ${hi} का भाव आज`;
 const description = `${hi} का आज का मंडी भाव ${dateHi(c.date)}: औसत (मॉडल) ₹${inr(c.modal_median)} प्रति क्विंटल। ${c.markets} mandis in ${c.states} states, lowest ₹${inr(c.cheapest.modal_price)} at ${c.cheapest.market}, highest ₹${inr(c.dearest.modal_price)} at ${c.dearest.market}.`;
 const schema = [{ '@context': 'https://schema.org', '@type': 'BreadcrumbList', itemListElement: [
@@ -23,6 +29,20 @@ const schema = [{ '@context': 'https://schema.org', '@type': 'BreadcrumbList', i
   <p class="answer"><span class="hi">{hi} का भाव {dateHi(c.date)}:</span> India median <strong>₹{inr(c.modal_median)}/quintal</strong> (₹{perKg(c.modal_median)}/kg) across <strong>{c.markets} mandis</strong> in {c.states} states. Lowest modal price ₹{inr(c.cheapest.modal_price)} at {c.cheapest.market} ({c.cheapest.state}); highest ₹{inr(c.dearest.modal_price)} at {c.dearest.market} ({c.dearest.state}).</p>
 
   <Trend points={c.history} label={`${c.label} India median`} />
+
+  {msp && <>
+    <h2>{c.label} price vs MSP <span class="hi">— न्यूनतम समर्थन मूल्य</span></h2>
+    <p>The government's <a href="/msp/">minimum support price</a> for {msp.row.crop.toLowerCase()} ({msp.season}) is <strong>₹{inr(msp.msp)} per quintal</strong>. Today's India median mandi price of ₹{inr(c.modal_median)} is <strong class={gap >= 0 ? 'up' : 'down'}>{Math.abs(gap)}% {gap >= 0 ? 'above' : 'below'} MSP</strong>, and {below} of {c.rows.length} mandis reported a modal price below MSP.{msp.next && <> The MSP for the next harvest, {msp.next.season}, is ₹{inr(msp.next.msp)}.</>}</p>
+    <p class="muted">MSP is the price at which government agencies buy when they procure; private trade in a mandi can be above or below it, and procurement does not run in every state.</p>
+  </>}
+
+  {note && <>
+    <h2>About {c.label.toLowerCase()} prices</h2>
+    <p><strong>Season.</strong> {note.season}</p>
+    <p><strong>Where it grows.</strong> {note.states}</p>
+    <p><strong>What moves the price.</strong> {note.drivers}</p>
+    <p><strong>Per kg.</strong> Mandi prices are quoted per quintal (100 kg), so ₹{inr(c.modal_median)}/quintal is ₹{perKg(c.modal_median)} per kg at the mandi. Shop prices are higher because they add transport, wholesale and retail margins and losses.</p>
+  </>}
 
   <h2>{c.label} price by state <span class="hi">— राज्यवार भाव</span></h2>
   <div class="scroll"><table>

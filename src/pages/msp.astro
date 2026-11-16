@@ -1,0 +1,70 @@
+---
+import Base from '../layouts/Base.astro';
+import data from '../data/mandi.json';
+import held from '../data/holdback.json';
+import { KHARIF, RABI, type MspRow } from '../data/msp';
+import { inr, dateEn } from '../lib/fmt';
+const crops = (data.crops as any[]).filter((c) => !held.includes(`bhav/${c.slug}`));
+const live = (slug?: string) => slug ? crops.find((c) => c.slug === slug) : undefined;
+const pct = (r: MspRow) => ((r.now - r.prev) / r.prev * 100).toFixed(1);
+const vs = [...KHARIF.rows, ...RABI.rows].filter((r) => r.slug && live(r.slug)).map((r) => {
+  const c = live(r.slug)!; const m = KHARIF.rows.includes(r) ? r.now : r.prev;
+  return { r, c, m, gap: Math.round((c.modal_median - m) / m * 100) };
+});
+const qs: [string, string][] = [
+  ['What is the full form of MSP?', 'MSP stands for Minimum Support Price (न्यूनतम समर्थन मूल्य): the price at which government agencies buy a crop from farmers when they procure it.'],
+  ['What is the MSP of wheat for 2027-28?', `₹${inr(RABI.rows[0].now)} per quintal for the rabi marketing season 2027-28 (wheat harvested in spring 2027), up ₹${RABI.rows[0].now - RABI.rows[0].prev} from ₹${inr(RABI.rows[0].prev)}.`],
+  ['What is the MSP of paddy for 2026-27?', `₹${inr(KHARIF.rows[0].now)} per quintal for common paddy and ₹${inr(KHARIF.rows[1].now)} for Grade A, for the kharif marketing season 2026-27.`],
+  ['Who decides MSP?', 'The Cabinet Committee on Economic Affairs (CCEA) approves MSP twice a year, for kharif and rabi crops, on the recommendation of the Commission for Agricultural Costs and Prices (CACP).'],
+  ['Is MSP a legal guarantee?', 'No. MSP is a policy price, not a law: it is paid when government agencies (FCI, state agencies, NAFED, CCI) procure. Private buyers in a mandi can pay more or less, and procurement is concentrated in some crops and states.'],
+];
+const schema = [{ '@context': 'https://schema.org', '@type': 'BreadcrumbList', itemListElement: [
+  { '@type': 'ListItem', position: 1, name: 'Home', item: 'https://aajkamandi.com/' },
+  { '@type': 'ListItem', position: 2, name: 'MSP', item: 'https://aajkamandi.com/msp/' }] },
+  { '@context': 'https://schema.org', '@type': 'FAQPage', mainEntity: qs.map(([q, a]) => ({ '@type': 'Question', name: q, acceptedAnswer: { '@type': 'Answer', text: a } })) }];
+---
+<Base schema={schema} title={`MSP 2026-27 and 2027-28: Minimum Support Price of All Crops | एमएसपी`}
+      description={`MSP for 20 kharif and rabi crops: wheat ₹${inr(RABI.rows[0].now)} (2027-28), paddy ₹${inr(KHARIF.rows[0].now)} (2026-27), with last year's rates, the increase, and today's mandi prices compared with MSP.`}>
+  <p class="crumbs"><a href="/">Home</a> › MSP</p>
+  <h1>MSP: minimum support price of crops <span class="hi">| न्यूनतम समर्थन मूल्य</span></h1>
+  <p class="answer">The MSP of <strong>wheat is ₹{inr(RABI.rows[0].now)} per quintal</strong> for rabi 2027-28 (approved {RABI.approved}) and of <strong>common paddy ₹{inr(KHARIF.rows[0].now)}</strong> for kharif 2026-27 (approved {KHARIF.approved}). The tables below list all 20 kharif and rabi crops with last season's rate and the increase, and compare today's mandi prices with MSP.</p>
+
+  <h2>Kharif MSP {KHARIF.season} <span class="hi">— खरीफ फसलों का एमएसपी</span></h2>
+  <p>Kharif crops are sown with the monsoon (June–July) and sold from October. These rates apply to the {KHARIF.season} marketing season, i.e. the crop now arriving in mandis.</p>
+  <div class="scroll"><table>
+    <tr><th>Crop</th><th class="num">MSP {KHARIF.prevSeason}</th><th class="num">MSP {KHARIF.season}</th><th class="num">Increase</th></tr>
+    {KHARIF.rows.map((r) => <tr><td>{r.slug && live(r.slug) ? <a href={`/bhav/${r.slug}/`}>{r.crop}</a> : r.crop} <span class="hi muted">{r.hindi}</span></td><td class="num">₹{inr(r.prev)}</td><td class="num"><strong>₹{inr(r.now)}</strong></td><td class="num">+₹{inr(r.now - r.prev)} ({pct(r)}%)</td></tr>)}
+  </table></div>
+
+  <h2>Rabi MSP {RABI.season} <span class="hi">— रबी फसलों का एमएसपी</span></h2>
+  <p>Rabi crops are sown in October–December and harvested from March. The {RABI.season} rates apply to the crop that will be sold from April 2027; until then, grain from the last harvest trades against the {RABI.prevSeason} rates in the first column. The margin is the government's figure for MSP over the all-India weighted average cost of production.</p>
+  <div class="scroll"><table>
+    <tr><th>Crop</th><th class="num">MSP {RABI.prevSeason}</th><th class="num">MSP {RABI.season}</th><th class="num">Increase</th><th class="num">Margin over cost</th></tr>
+    {RABI.rows.map((r) => <tr><td>{r.slug && live(r.slug) ? <a href={`/bhav/${r.slug}/`}>{r.crop}</a> : r.crop} <span class="hi muted">{r.hindi}</span></td><td class="num">₹{inr(r.prev)}</td><td class="num"><strong>₹{inr(r.now)}</strong></td><td class="num">+₹{inr(r.now - r.prev)} ({pct(r)}%)</td><td class="num">{r.margin}%</td></tr>)}
+  </table></div>
+  <p class="muted">All figures in ₹ per quintal (100 kg). Source: Government of India, Cabinet Committee on Economic Affairs decisions of {KHARIF.approved} and {RABI.approved}.</p>
+
+  <h2>Today's mandi prices vs MSP</h2>
+  <p>India median modal price on {dateEn(data.latest)} across reporting mandis, against the MSP in force for that crop now.</p>
+  <div class="scroll"><table>
+    <tr><th>Crop</th><th class="num">Mandi median ₹/qtl</th><th class="num">MSP now</th><th class="num">Difference</th></tr>
+    {vs.map(({ r, c, m, gap }) => <tr><td><a href={`/bhav/${c.slug}/`}>{c.label}</a></td><td class="num">{inr(c.modal_median)}</td><td class="num">{inr(m)}</td><td class={`num ${gap >= 0 ? 'up' : 'down'}`}>{gap >= 0 ? '+' : ''}{gap}%</td></tr>)}
+  </table></div>
+
+  <h2>What is MSP? <span class="hi">— एमएसपी क्या है</span></h2>
+  <p>The minimum support price is the price at which the central government, through agencies such as the Food Corporation of India (FCI), NAFED, the Cotton Corporation of India and state agencies, buys a crop from farmers. It is announced before sowing so that farmers know the floor they can expect, and it covers 22 mandated crops: 14 kharif crops, 6 rabi crops, jute and copra. The tables above list the 20 kharif and rabi crops; paddy, jowar and cotton each have two varieties. Sugarcane has a separate fair and remunerative price (FRP).</p>
+  <p>Since 2018-19 the government has fixed MSP at no less than 1.5 times the all-India weighted average cost of production, which the CACP calls "A2+FL" (paid-out costs plus the imputed value of family labour). That is why each release reports a margin over cost: 50% is the minimum, and wheat's 2027-28 margin is 106%.</p>
+
+  <h2>How MSP is decided</h2>
+  <ol>
+    <li>The Commission for Agricultural Costs and Prices (CACP) studies costs, prices, demand and supply and recommends MSPs.</li>
+    <li>State governments and ministries comment on the recommendations.</li>
+    <li>The Cabinet Committee on Economic Affairs approves the final rates: kharif usually in May–June, rabi in September–October.</li>
+  </ol>
+
+  <h2>Why mandi prices can be below MSP</h2>
+  <p>MSP is guaranteed only when an agency is buying. Procurement is large for wheat and paddy in states such as Punjab, Haryana and Madhya Pradesh, but smaller or occasional for pulses, oilseeds and coarse grains. Where no agency buys, or the produce does not meet the fair average quality (FAQ) standard for moisture and damage, traders set the price, and it can fall below MSP, as the table above shows for some crops today. Some states pay a bonus on top of MSP, or run price-deficiency schemes that pay farmers the gap.</p>
+
+  <h2>Frequently asked questions</h2>
+  {qs.map(([q, a]) => <><h3>{q}</h3><p>{a}</p></>)}
+</Base>

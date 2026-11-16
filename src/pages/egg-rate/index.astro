@@ -23,4 +23,15 @@ const avg = today.reduce((s: number, z: any) => s + z.per100, 0) / Math.max(1, t
     ))}
   </table></div>
   <p class="muted">NECC suggested prices; the Committee does not engage in trade and actual prices may vary.</p>
+
+  <h2>How the NECC egg rate works <span class="hi">— एनईसीसी अंडा भाव क्या है</span></h2>
+  <p>The National Egg Coordination Committee (NECC) is a body of poultry farmers formed in 1982. Every day it announces a suggested wholesale price for eggs in each of its zones, quoted per 100 eggs. Traders and farmers use that figure as the reference rate for the day; the NECC itself does not buy or sell eggs.</p>
+  <ul>
+    <li><strong>Wholesale, not retail.</strong> The rate is the farm-gate or wholesale price. Shops add transport, breakage and margin, so retail egg prices are usually higher than the NECC rate divided by 100.</li>
+    <li><strong>Zones, not every city.</strong> Each zone covers a production or consumption centre. Producing areas such as Namakkal (Tamil Nadu), Hyderabad and Barwala (Haryana) are usually cheaper than big consuming cities such as Mumbai, Delhi and Kolkata.</li>
+    <li><strong>Per 100 eggs.</strong> A rate of ₹{avg.toFixed(0)} means about ₹{(avg / 100).toFixed(2)} per egg, ₹{(avg * 0.12).toFixed(0)} per dozen and ₹{(avg * 0.30).toFixed(0)} per tray of 30, before retail margins.</li>
+  </ul>
+  <h3>Why egg prices rise and fall</h3>
+  <p>Demand for eggs is highest in winter and drops during Shravan and Navratri, when many households avoid eggs, so prices commonly fall in those weeks and recover afterwards. On the supply side, summer heat lowers laying rates, and feed costs (maize and soybean meal make up most of a layer's feed) push up the cost of production.</p>
+  <p class="muted">Related: <a href="/bhav/maize/">maize mandi price</a> (the main poultry feed grain) · <a href="/bhav/soyabean/">soyabean price</a>.</p>
 </Base>

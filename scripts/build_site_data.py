@@ -18,7 +18,7 @@ DAILY, EGGS, OUT = ROOT / "data" / "daily", ROOT / "data" / "eggs", ROOT / "src"
 # Programmatic SEO gate: publish in batches. Raise the limits only after the last batch is indexed
 # and showing impressions in Search Console.
 # Batch 1 = 50 mandi-town pages + 15 crop pages + egg-rate pages (~35) = ~100 pages.
-TOWN_LIMIT, CROP_LIMIT = 50, 15
+TOWN_LIMIT, CROP_LIMIT = 50, 17
 MIN_TOWN_DAYS = 3        # a town page needs prices on at least this many of the stored days
 MIN_TOWN_ROWS = 8        # ...and at least this many price rows on its latest day
 HISTORY_DAYS = 30
@@ -30,6 +30,7 @@ CROPS = [
     ("wheat", r"^wheat$"), ("cumin", r"^cummin seed"), ("paddy", r"^paddy"), ("soyabean", r"^soyabean$"),
     ("guar", r"^guar seed"), ("chana", r"^bengal gram\(gram\)"), ("cotton", r"^cotton$"), ("groundnut", r"^groundnut$"),
     ("bajra", r"^bajra"), ("moong", r"^green gram ?\(moong\)"), ("coriander-seed", r"^corriander seed"),
+    ("tomato", r"^tomato$"), ("potato", r"^potato$"),
 ]
 
 # Hindi names. Matched against the Agmarknet commodity name (longest key wins).
