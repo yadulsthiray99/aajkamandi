@@ -10,6 +10,14 @@ const today = (mandi as any).today as { date: string; time: string; towns: numbe
 const live = mandi.towns.filter((t: any) => t.today && !held.includes(`mandi/${t.state_slug}/${t.slug}`));
 const pageDate = today ? today.date : mandi.latest;
 const schema = [{ '@context': 'https://schema.org', '@type': 'WebSite', name: 'AajKaMandi', url: 'https://aajkamandi.com/', inLanguage: ['hi', 'en'] }];
+// day-on-day and week-on-week change in each crop's national median modal price (from the stored daily history)
+const moves = mandi.crops.filter((c: any) => !held.includes(`bhav/${c.slug}`) && c.history?.length >= 2).map((c: any) => {
+  const h = c.history, last = h[h.length - 1], prev = h[h.length - 2], wk = h[Math.max(0, h.length - 8)];
+  return { c, now: last.modal, d1: last.modal - prev.modal, p1: ((last.modal - prev.modal) / prev.modal) * 100, p7: ((last.modal - wk.modal) / wk.modal) * 100, date: last.date };
+});
+const up = moves.filter((m: any) => m.p1 > 0.05).sort((a: any, b: any) => b.p1 - a.p1).slice(0, 5);
+const down = moves.filter((m: any) => m.p1 < -0.05).sort((a: any, b: any) => a.p1 - b.p1).slice(0, 5);
+const pct = (x: number) => `${x > 0 ? '+' : ''}${x.toFixed(1)}%`;
 ---
 <Base title={`Aaj Ka Mandi Bhav ${dateEn(pageDate)} | आज का मंडी भाव - AajKaMandi`}
       description={`आज का मंडी भाव ${dateHi(pageDate)}: बैतूल, नीमच, इंदौर, मंदसौर, कोटा समेत ${mandi.towns.length} मंडियों के ताज़ा भाव। Official Agmarknet data, updated daily. Egg rate today too.`} schema={schema}>
@@ -20,6 +28,20 @@ const schema = [{ '@context': 'https://schema.org', '@type': 'WebSite', name: 'A
     </div>
     <Fragment set:html={hero()} />
   </div>
+  <div class="cards4">
+    <div><span>Mandis covered</span><b>{mandi.towns.length.toLocaleString('en-IN')}</b></div>
+    <div><span>Crops tracked</span><b>{mandi.crops.length}</b></div>
+    <div><span>Price reports ({dateEn(mandi.latest)})</span><b>{mandi.total_reports.toLocaleString('en-IN')}</b></div>
+    <div><span>Days of history</span><b>{(mandi as any).days_stored}</b></div>
+  </div>
+  {(up.length > 0 || down.length > 0) && <>
+    <h2>Prices that moved most <span class="hi">— आज किसके भाव बदले</span></h2>
+    <p class="muted">National median modal price per quintal on {dateEn(moves[0].date)} compared with the previous reporting day. The median also shifts with which mandis reported that day, so open the crop page before reading too much into a big move.</p>
+    <div class="movers">
+      <div><h3 class="upc">Up <span class="hi">— तेज़ी</span></h3><ul>{up.length ? up.map((m: any) => <li><a href={`/bhav/${m.c.slug}/`}>{m.c.label} <span class="hi">{m.c.hindi}</span></a> <b>₹{inr(m.now)}</b> <span class="upc">{pct(m.p1)}</span> <span class="muted">7 days {pct(m.p7)}</span></li>) : <li class="muted">No crop rose.</li>}</ul></div>
+      <div><h3 class="downc">Down <span class="hi">— मंदी</span></h3><ul>{down.length ? down.map((m: any) => <li><a href={`/bhav/${m.c.slug}/`}>{m.c.label} <span class="hi">{m.c.hindi}</span></a> <b>₹{inr(m.now)}</b> <span class="downc">{pct(m.p1)}</span> <span class="muted">7 days {pct(m.p7)}</span></li>) : <li class="muted">No crop fell.</li>}</ul></div>
+    </div>
+  </>}
   {today && live.length > 0 && (
     <>
       <h2 class="hi">आज {dateHi(today.date)} के ताज़ा भाव <span class="muted">— {today.time} बजे तक</span></h2>
@@ -34,4 +56,13 @@ const schema = [{ '@context': 'https://schema.org', '@type': 'WebSite', name: 'A
   <ul class="grid">{mandi.crops.filter((c: any) => !held.includes(`bhav/${c.slug}`)).map((c: any) => <li><a href={`/bhav/${c.slug}/`}>{c.label}<br /><span class="muted">₹{inr(c.modal_median)}/qtl</span></a></li>)}</ul>
   <h2>Egg rate today <span class="hi">— अंडे का भाव</span></h2>
   <p><a href="/egg-rate/">NECC egg rates for {eggs.zones.length} cities</a></p>
+  <style>
+    .cards4 { display:grid; grid-template-columns:repeat(auto-fit,minmax(150px,1fr)); gap:10px; margin:16px 0; }
+    .cards4 div { border:1px solid #e5e7eb; border-radius:10px; padding:10px 14px; background:#fff; }
+    .cards4 span { font-size:13.5px; color:#6b7280; display:block; } .cards4 b { font-size:24px; }
+    .movers { display:grid; grid-template-columns:1fr 1fr; gap:16px; }
+    .movers ul { list-style:none; padding:0; margin:0; } .movers li { padding:6px 0; border-bottom:1px solid #f1f5f9; display:flex; flex-wrap:wrap; gap:4px 10px; align-items:baseline; }
+    .upc { color:#15803d; font-weight:700; } .downc { color:#b91c1c; font-weight:700; }
+    @media (max-width:640px) { .movers { grid-template-columns:1fr; } }
+  </style>
 </Base>
