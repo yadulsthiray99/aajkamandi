@@ -1,0 +1,55 @@
+---
+// Contact form: posts to /api/contact (worker/index.js), which forwards the message to the site owner's inbox
+// through Cloudflare Email Routing. Self-contained styles so it fits any of the sites' layouts.
+const EMAIL = 'hello@aajkamandi.com';
+const TYPES = ['Question', 'Correction', 'Advertising or sponsorship', 'Partnership or data request', 'Other'];
+---
+<form class="cf-form" method="post" action="/api/contact" novalidate>
+  <div class="cf-row">
+    <label>Your name<input name="name" maxlength="100" autocomplete="name" /></label>
+    <label>Your email *<input name="email" type="email" maxlength="200" required autocomplete="email" /></label>
+  </div>
+  <label>What is it about?<select name="type">{TYPES.map((t) => <option>{t}</option>)}</select></label>
+  <label>Message *<textarea name="message" rows="6" maxlength="5000" required minlength="10"></textarea></label>
+  <label class="cf-hp" aria-hidden="true">Website<input name="website" tabindex="-1" autocomplete="off" /></label>
+  <input type="hidden" name="t" value="" />
+  <input type="hidden" name="page" value="" />
+  <button type="submit">Send message</button>
+  <p class="cf-status" role="status" aria-live="polite"></p>
+  <p class="cf-note">Or email <a href={`mailto:${EMAIL}`}>{EMAIL}</a>. We use your email only to reply.</p>
+</form>
+<style>
+  .cf-form { display:grid; gap:12px; max-width:640px; margin:18px 0 8px; padding:16px 18px; border:1px solid #d6dbe1; border-radius:14px; background:#fff; }
+  .cf-row { display:grid; grid-template-columns:1fr 1fr; gap:12px; }
+  .cf-form label { display:flex; flex-direction:column; gap:4px; font-size:14px; font-weight:600; color:#475569; }
+  .cf-form input, .cf-form select, .cf-form textarea { font:inherit; font-size:16px; font-weight:400; color:#0f172a; padding:9px 10px; border:1px solid #94a3b8; border-radius:9px; background:#fff; }
+  .cf-form textarea { resize:vertical; }
+  .cf-form button { justify-self:start; font:inherit; font-size:16px; font-weight:700; padding:10px 20px; border:0; border-radius:9px; background:#0f172a; color:#fff; cursor:pointer; }
+  .cf-form button[disabled] { opacity:.6; cursor:wait; }
+  .cf-hp { position:absolute; left:-9999px; width:1px; height:1px; overflow:hidden; }
+  .cf-status { margin:0; min-height:1.2em; font-weight:600; }
+  .cf-status.ok { color:#15803d; } .cf-status.err { color:#b91c1c; }
+  .cf-note { margin:0; font-size:14px; color:#64748b; }
+  @media (max-width:560px) { .cf-row { grid-template-columns:1fr; } }
+</style>
+<script is:inline>
+  (function () {
+    var f = document.querySelector('.cf-form'); if (!f) return;
+    f.elements.t.value = String(Date.now());
+    f.elements.page.value = document.referrer || location.href;
+    var st = f.querySelector('.cf-status'), btn = f.querySelector('button');
+    f.addEventListener('submit', function (e) {
+      e.preventDefault();
+      if (!f.checkValidity()) { st.className = 'cf-status err'; st.textContent = 'Please add your email and a message of at least 10 characters.'; return; }
+      btn.disabled = true; st.className = 'cf-status'; st.textContent = 'Sending…';
+      fetch('/api/contact', { method: 'POST', body: new FormData(f) })
+        .then(function (r) { return r.json().catch(function () { return { ok: false }; }); })
+        .then(function (d) {
+          if (d.ok) { f.reset(); f.elements.t.value = String(Date.now()); st.className = 'cf-status ok'; st.textContent = 'Thanks, your message has been sent. We usually reply within 2 working days.'; }
+          else { st.className = 'cf-status err'; st.textContent = d.error || 'Sorry, something went wrong. Please email us instead.'; }
+        })
+        .catch(function () { st.className = 'cf-status err'; st.textContent = 'Sorry, something went wrong. Please email us instead.'; })
+        .finally(function () { btn.disabled = false; });
+    });
+  })();
+</script>
